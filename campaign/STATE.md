@@ -34,6 +34,31 @@ House-only file: never donated (see the charter's rule).
 - `RUNEFORGEAI_MAD_DATA_SCIENTIST_SILLYTAVERN.md`
 - `campaign/STATE.md` (this file)
 
+## Campaign stood up (2026-11-17, Volmarr's order)
+
+- **Roadmap adopted:** `ROADMAP_RuneForgeAI_Distributed_Companion.md`
+  (Volmarr's, on this branch) — the Distributed AI Companion plan:
+  25 work packages RFST-001..RFST-025, release Gates A-F. Work
+  follows its order and dependency graph; the first sprint is
+  RFST-001..RFST-007 (baseline, Gufo text, AllTalk voice).
+- **Campaign home:** purplelongship clone `~/sillytavern-forge`,
+  branch `yrsa/our-sillytavern`. Services live where the roadmap
+  puts them: modified Gufo on purpleraider (our resident service),
+  AllTalk V2 + the second brain on purplelongship, the SillyTavern
+  UI on the F15 (Windows). F15-dependent steps are
+  environment-gated while that machine sleeps — gated, never
+  treated as blockers for the rest of the work.
+- **Progress ledger:** `campaign/PROGRESS.md` (house-only, like
+  this file) — the RFST ledger and gate tracker every builder and
+  the minder keep current.
+- **Minder:** 10-minute keeper `sillytavern-forge-keeper` under
+  Volmarr's keeper law (restarts stopped work, banks in order);
+  reports at gates, at package waves, and on genuine blockers.
+- **Public-repo hygiene (roadmap sections 1.13 and 18):** before
+  every push, scan what is about to ship — no chat logs, no
+  second-brain records, no personal media, no credentials, no
+  private addresses, no model assets. Ever.
+
 ## Standing notes
 
 - **Clean-room wall (charter law):** nothing coded in this repo
