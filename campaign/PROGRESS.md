@@ -19,7 +19,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
-| RFST-011 | P0 | Read-only all-collections gateway | QUEUED |
+| RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
 | RFST-012 | P0 | Global zero-config RAG injection | QUEUED |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | QUEUED |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | QUEUED |
@@ -461,3 +461,50 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     this tick, and no second-brain records were read at all.
     Schema and hit shapes were verified from the running
     service's own code plus the live 401 probes.
+
+- 2026-11-17: **RFST-011 DONE - read-only all-collections
+  gateway proven against a mock upstream; authenticated live
+  search GATED on a scoped read key.** New dependency-free core
+  `src/second-brain/gateway-core.js` + thin Express router
+  `src/endpoints/second-brain.js` (mounted at /api/second-brain
+  in src/server-startup.js). New Jest suite
+  `tests/second-brain-gateway.test.js` imports the real core
+  (RFST-007 pattern, nothing replicated).
+  - **Allowlist only:** the gateway can call exactly three
+    upstream read operations (search, chunk fetch, overview)
+    plus its own health report. Every write verb (POST/PUT/
+    DELETE/PATCH) is rejected 403, wrong verbs 405, unknown or
+    write-shaped paths 404, malformed/traversal/encoded paths
+    400 - all BEFORE any upstream call; the mock upstream
+    records every request it receives and the suite asserts
+    zero upstream traffic for 14 write attempts (incl.
+    ingest/build/admin/refresh shapes and .. / %2e tricks).
+    Paths are decoded repeatedly, traversal segments rejected,
+    and matched exactly.
+  - **All collections by construction:** upstream search runs
+    over the single unified corpus with no collection
+    parameter (RFST-010), so gateway search covers the entire
+    knowledge base; the suite proves hydrated hits (top hits
+    fetched per chunk id) carrying text + provenance (document
+    title, source), trimmed to a configurable count and text
+    budget.
+  - **Config hygiene:** upstream base URL + scoped read token
+    come from the server environment only
+    (SECOND_BRAIN_URL / SECOND_BRAIN_READ_TOKEN); the token is
+    sent upstream as a bearer credential, never returned to
+    callers (asserted) and never logged. With no token or no
+    base URL the gateway reports itself unconfigured (503 on
+    data routes, health shows configured:false) and makes no
+    upstream call at all.
+  - **Failure behaviour:** upstream 500 and upstream-down both
+    surface as catchable 502 results / GatewayError rejections;
+    the caller survives and a later call succeeds.
+  - **Result:** targeted suite **17 passed / 17**; full unit
+    suite **23 suites, 522 passed / 522** (baseline 505 + 17
+    new), snapshots 2 passed; eslint clean on the new core,
+    endpoint, startup change, and suite.
+  - **GATED (not done):** an authenticated live search - it
+    needs a read-scoped key issued for this campaign; no key
+    was borrowed or read this package and no second-brain
+    records were read. Gate C stays OPEN - it needs that live
+    search.
