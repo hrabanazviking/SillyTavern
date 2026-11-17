@@ -20,7 +20,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
-| RFST-012 | P0 | Global zero-config RAG injection | QUEUED |
+| RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection GATED on a scoped read key) |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | QUEUED |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | QUEUED |
 | RFST-015 | P1 | Automatic image workflow router | QUEUED |
@@ -508,3 +508,60 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     was borrowed or read this package and no second-brain
     records were read. Gate C stays OPEN - it needs that live
     search.
+
+- 2026-11-17: **RFST-012 DONE - global zero-config RAG
+  injection proven against a mock gateway; authenticated live
+  injection GATED on a scoped read key.** New dependency-free
+  core `src/second-brain/rag-injection-core.js`. New Jest suite
+  `tests/second-brain-rag.test.js` imports the real core
+  (RFST-007/011 pattern, nothing replicated).
+  - **Zero-config by construction:** the core accepts no
+    character identity and no per-character settings anywhere;
+    its only inputs are the discussion, recent context, and one
+    global config (defaults from the roadmap sketch: top_k 8,
+    max_context_tokens 1800, relevance cutoff 0.3; global env
+    overrides SECOND_BRAIN_RAG_ENABLED / _TOP_K /
+    _MAX_CONTEXT_TOKENS / _MIN_SCORE). The suite proves a new
+    character context retrieves with no config, and that adding
+    character identity fields changes neither the query nor
+    the injected block.
+  - **Pipeline:** buildRetrievalQuery formulates the query
+    from the current discussion + recent turns (system messages
+    excluded); the injected search function is the RFST-011
+    gateway search (all collections by construction, RFST-010);
+    planInjection deduplicates exact + near-identical snippets
+    (token-set Jaccard >= 0.8), ranks by score, applies the
+    relevance cutoff, and trims to the token budget (final
+    snippet trimmed at a word boundary); formatInjectionBlock
+    renders an ephemeral block with provenance tags (title,
+    source, id) framed explicitly as data, not instructions.
+    Inputs are never mutated; nothing is written back - the
+    injector exposes only inject/resetHistory/config and the
+    mock records calls carrying only { q, k }.
+  - **Loop/repeat suppression:** snippets injected on earlier
+    turns are suppressed on later turns (per-injector history,
+    resettable), and any text already containing an injection
+    block is excluded from query building, so a fed-back block
+    cannot trigger recursive retrieval.
+  - **Graceful failure:** global off (no gateway call at all),
+    unconfigured, empty results, gateway throwing, and
+    malformed/null results all yield no injection and never
+    throw into the chat path.
+  - **Result:** targeted suite **23 passed / 23**; full unit
+    suite **24 suites, 545 passed / 545** (baseline 522 + 23
+    new), snapshots 2 passed; eslint clean on the new core
+    and suite. No production wiring was changed.
+  - **Seam inspection (honest):** the browser-side prompt
+    seams (vectors extension, world-info, extension prompts)
+    all depend on the full browser app (script.js graph) and
+    cannot be exercised or safely wired headlessly; the
+    server side has no chat-prompt assembly seam (prompt
+    building is client-side in SillyTavern). The proven
+    vertical slice is therefore the core + suite, with
+    createRagInjectorFromGateway ready to wrap the RFST-011
+    gateway; live/UI wiring is GATED, not done.
+  - **GATED (not done):** authenticated live injection - it
+    needs the same read-scoped key as RFST-011; no key was
+    borrowed or read this package and no second-brain records
+    were read. Gate C stays OPEN - it needs that live search
+    plus injection.
