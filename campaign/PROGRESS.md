@@ -25,7 +25,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
 | RFST-015 | P1 | Automatic image workflow router | DONE 2026-11-17 (router core + suite; live routing GATED on ComfyUI being started) |
 | RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | DONE 2026-11-17 (mock-ComfyUI lifecycle suite; live unload GATED on ComfyUI being started) |
-| RFST-017 | P1 | Resource-aware queues and cancellation | QUEUED |
+| RFST-017 | P1 | Resource-aware queues and cancellation | DONE 2026-11-17 (mock-executor suite; live contention GATED on real services running together) |
 | RFST-018 | P1 | Global integration status/settings panel | QUEUED |
 | RFST-019 | P1 | Network and transport hardening | QUEUED |
 | RFST-020 | P1 | Integration tests across all three computers | QUEUED |
@@ -918,3 +918,63 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     was installed for this package, exactly as RFST-013..016
     gated their live legs. Gate B stays OPEN - it needs the
     RFST-008 live benchmark and this live transcription leg.
+
+- 2026-11-17: **RFST-017 DONE - interactive text preserved
+  under contention proven by mock suite; live contention
+  GATED on the real services running together.** New
+  dependency-free core `src/scheduling/resource-queue-core.js`
+  implements the section 12 (Phase 7) scheduling policy.
+  New Jest suite `tests/resource-queue.test.js` (34 tests)
+  exercises the real core with injected mock executors and
+  an injected fake clock; no live service is contacted.
+  - **Priority policy (section 12):** 1 Gufo chat + user
+    STT, 2 second-brain retrieval for the current prompt,
+    3 AllTalk, 4 ComfyUI image jobs (queueable; an
+    explicitly user-prioritized image job is boosted to
+    priority 2), 5 background. Jobs run in priority order,
+    FIFO within a priority.
+  - **Bounded queues + admission control:** per-class
+    queue limits; a full class rejects only its own class
+    (queue_full); Offline services reject as
+    service_offline and Misconfigured as
+    service_misconfigured, never as silent retry loops.
+  - **KEY ACCEPTANCE:** with the ComfyUI and background
+    queues saturated (and overflow refused), an interactive
+    Gufo text job is still admitted, runs first, succeeds
+    exactly once, and is never dropped; a duplicate submit
+    of the same text request under contention returns the
+    existing job and the executor runs once.
+  - **Ids, tokens, tracking, idempotency:** every job
+    carries a request ID (auto-assigned when absent), a
+    cancellation token (cancel / onCancel /
+    throwIfCancelled), and a tracked state (queued /
+    running / retry-scheduled / succeeded / failed /
+    cancelled / timed-out). Duplicate submission at any
+    point, including after completion, returns the same
+    job and never duplicates work.
+  - **Cancel, timeout, retry:** cancelling a queued job
+    removes it from scheduling; cancelling a running job
+    discards its result. Timeouts are judged on the
+    injected clock; failures retry finitely (default 3)
+    with exponential backoff (base x 2^(n-1)) and a
+    retry-scheduled job never spins or starves others.
+  - **Service states + degraded mode:** the six common
+    states (Ready / Loading / Busy / Offline / Degraded /
+    Misconfigured) and the section 12 failure matrix as
+    data: AllTalk offline -> text continues without voice;
+    ComfyUI offline -> chat and voice continue, images
+    unavailable; second brain offline -> chat proceeds
+    without knowledge with an indicator; STT offline ->
+    typing continues; Gufo offline -> inference
+    unavailable with a clear message.
+  - **RFST-016 race guard:** canCleanup(service) refuses
+    cleanup / unload while any queued, running, or
+    retry-scheduled job for that service exists, and frees
+    the moment the last such job finishes or is cancelled.
+  - **Full unit suite: 708/708** (674 at RFST-009 HEAD +
+    34 new), 30 suites, snapshots 2 passed.
+  - **GATED (not done):** live contention proof against
+    the real Gufo / AllTalk / ComfyUI services running
+    together - none was started or reconfigured for this
+    package, exactly as RFST-013..016 gated their live
+    legs. Gate E stays OPEN.
