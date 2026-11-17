@@ -21,7 +21,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
 | RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection GATED on a scoped read key) |
-| RFST-013 | P1 | ComfyUI remote endpoint baseline | QUEUED |
+| RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | QUEUED |
 | RFST-015 | P1 | Automatic image workflow router | QUEUED |
 | RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | QUEUED |
@@ -565,3 +565,77 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     borrowed or read this package and no second-brain records
     were read. Gate C stays OPEN - it needs that live search
     plus injection.
+
+- 2026-11-17: **RFST-013 DONE - ComfyUI remote endpoint
+  baseline proven against a mock ComfyUI; live
+  image-into-chat GATED on ComfyUI being started.** No new
+  production code: the roadmap (section 10) makes the
+  built-in ComfyUI path the first integration path, so this
+  package audits and proves it. New Jest suite
+  `tests/comfyui-remote-endpoint.test.js` runs the REAL
+  server router `src/endpoints/stable-diffusion.js` over
+  real HTTP (node-fetch NOT mocked, unlike the older
+  stable-diffusion suite) against a node-http mock ComfyUI
+  on an ephemeral 127.0.0.1 port; only the browser client
+  glue is replicated line-for-line (RFST-006 pattern -
+  index.js cannot be imported headlessly) and pinned to the
+  real source by static tests.
+  - **Audit findings:** browser defaults are comfy_url
+    http://127.0.0.1:8188, workflow
+    Default_Comfy_Workflow.json, comfy_type standard.
+    generateComfyImageCommon loads the workflow via
+    POST /api/sd/comfy/workflow (missing file falls back to
+    the default workflow), substitutes the quoted
+    placeholders "%prompt%" / "%negative_prompt%" /
+    "%seed%" / "%denoise%" / "%clip_skip%" plus
+    model/vae/sampler/scheduler/steps/scale/width/height,
+    and POSTs { url, prompt: '{ "prompt": <workflow> }' }
+    to /api/sd/comfy/generate. The server POSTs the prompt
+    body VERBATIM to <url>/prompt (expects { prompt_id }),
+    polls GET <url>/history/<id> every 100 ms until the id
+    appears, throws on status_str error with the
+    execution_error node messages, takes the first images
+    entry (a_images ignored) else the first gifs entry,
+    fetches GET <url>/view?filename=&subfolder=&type=, and
+    answers { format: <extension>, data: <base64> }; the
+    browser saves that via saveBase64AsFile and puts it in
+    chat with sendMessage. /comfy/ping proxies
+    /system_stats; samplers/models/schedulers/vaes proxy
+    /object_info. Workflows must be API format (object keyed
+    by node-id strings with class_type/inputs), not UI
+    format; the bundled default workflow follows it.
+  - **Honest limits found:** the history poll has NO
+    server-side timeout - cancellation is the client
+    disconnect, which fires POST <url>/interrupt (the
+    AbortController in the route is not wired into its
+    fetches); and no auth is sent on /prompt, /history or
+    /view (Authorization only on /interrupt), so the
+    endpoint assumes a trusted private network, exactly as
+    roadmap section 3 requires.
+  - **Suite proves (18 tests):** workflow load + fallback;
+    an API-format workflow submitted with substitutions
+    applied (fake checkpoint/seed/steps asserted at the
+    mock), completion polled (>= 3 history hits across two
+    pending replies), image bytes fetched via /view with
+    the exact filename/subfolder/type query and returned
+    as { format: png, data: base64 } decoding byte-equal
+    to a tiny valid PNG generated in-test; a_images-only
+    outputs skipped; gif fallback (webp); failure cases
+    all surface catchably as ST 500s and never crash the
+    caller - /prompt 500, workflow error status with node
+    message, no recognizable outputs, /view 404, server
+    down, /system_stats 500 on ping - and a client-side
+    timeout aborts catchably against a slow history, with
+    a successful generation afterwards proving survival.
+  - **Result:** targeted suite **18 passed / 18**; full
+    unit suite **25 suites, 563 passed / 563** (baseline
+    545 + 18 new), snapshots 2 passed; eslint clean on
+    the new suite. No production wiring was changed.
+  - **GATED (not done):** a live image returned into chat
+    from the real ComfyUI - it is installed on
+    purpleraider at /home/volmarr/ai/ComfyUI but was NOT
+    running at audit time (no process, port 8188 closed),
+    and no service was started for this package. The live
+    leg waits on ComfyUI being started under a roadmap
+    step / the owner word. Gate D stays OPEN - it needs
+    that live run plus RFST-014/015/016.
