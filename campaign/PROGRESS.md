@@ -28,7 +28,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-017 | P1 | Resource-aware queues and cancellation | DONE 2026-11-17 (mock-executor suite; live contention GATED on real services running together) |
 | RFST-018 | P1 | Global integration status/settings panel | DONE 2026-11-17 (panel core + suite; live Windows UI panel GATED on the F15 UI host) |
 | RFST-019 | P1 | Network and transport hardening | DONE 2026-11-17 (hardening core + suite; live cross-machine audit GATED) |
-| RFST-020 | P1 | Integration tests across all three computers | QUEUED |
+| RFST-020 | P1 | Integration tests across all three computers | DONE 2026-11-17 (mock scenario matrix suite; live three-machine run GATED on all three machines being available together) |
 | RFST-021 | P1 | Update/merge compatibility harness | QUEUED |
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | QUEUED |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | QUEUED |
@@ -1053,3 +1053,50 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     where a machine is asleep or unavailable. No
     running service was reconfigured or disturbed
     for this package. Gate E stays OPEN.
+
+- 2026-11-17: **RFST-020 DONE - integration tests
+  across all three computers.** Evidence required
+  (roadmap section 14): full scenario matrix passes.
+  - **Core:** new dependency-free module
+    `src/integration/scenario-matrix-core.js` defines
+    the full cross-machine scenario matrix as data:
+    13 scenarios across the three host ROLES only
+    (ui-host / inference-host / services-host - never
+    real hostnames or network addresses), covering
+    every already-banked integration (Gufo text
+    streaming/cancel, AllTalk TTS segmentation,
+    second-brain RAG injection, ComfyUI routing and
+    idle lifecycle, resource queues and cross-host
+    failure degradation, the status panel, and
+    transport hardening). Each scenario carries its
+    host roles, preconditions, steps, and expected
+    result. A completeness validator reports missing
+    integrations, duplicate ids, and malformed
+    scenarios, and a runner executes scenarios against
+    mock/pluggable executors and produces a
+    pass/fail/gated matrix report with accurate
+    summary counts.
+  - **Gating, never faking:** a scenario whose live
+    preconditions are unmet (a required host or
+    service unavailable, or a live-only scenario
+    outside a live run) is reported GATED - skipped,
+    not passed and not failed - with the unmet
+    preconditions named, and the executor is never
+    invoked for it. A failing step fails only its own
+    scenario; the rest of the matrix still runs. In
+    the mock run 10 scenarios pass and the 3 live-only
+    scenarios gate.
+  - **Suite:** `tests/scenario-matrix.test.js`,
+    21 tests against mock executors and mock
+    environments: matrix completeness (every banked
+    integration has at least one scenario), all
+    mock-executable scenarios pass, failure isolation,
+    gated reporting, and accurate report counts.
+  - **Full unit suite: 783/783** (762 at RFST-019
+    HEAD + 21 new), 33 suites.
+  - **GATED (not done):** the live three-machine run
+    of the live-only scenarios - gated on all three
+    machines being available together (the F15 UI
+    host, the inference host, and the services host).
+    No running service was started, reconfigured, or
+    disturbed for this package. Gate E stays OPEN.
