@@ -9,8 +9,8 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 
 | ID | Pri | Package | Status |
 | --- | --- | --- | --- |
-| RFST-001 | P0 | Fork baseline and upstream-diff audit | IN PROGRESS (first builder) |
-| RFST-002 | P0 | Backup/restore and public repo exclusion rules | QUEUED |
+| RFST-001 | P0 | Fork baseline and upstream-diff audit | DONE 2026-11-17 (repo-side audit; Windows launch GATED) |
+| RFST-002 | P0 | Backup/restore and public repo exclusion rules | DONE 2026-11-17 (repo-side); Windows backup/restore drill GATED |
 | RFST-003 | P0 | Gufo readiness + model capability probe | QUEUED |
 | RFST-004 | P0 | Gufo streaming chat-completion integration | QUEUED |
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | QUEUED |
@@ -52,3 +52,93 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
   roadmap adopted as written; minder `sillytavern-forge-keeper`
   created; first builder dispatched for campaign setup +
   RFST-001.
+
+- 2026-11-17: **RFST-001 DONE (repo-side audit)** — first builder,
+  purplelongship clone `~/sillytavern-forge`, branch
+  `yrsa/our-sillytavern`.
+  - **Pinned baseline:** HEAD `991372e54afe55645c0cf30e436110e2ff302246`
+    (`git describe`: `1.19.0-6-g991372e54`); SillyTavern **1.19.0**
+    (package.json), license **AGPL-3.0**; Node.js **v22.22.1** on
+    purplelongship; git 2.53.0.
+  - **Upstream divergence: zero code divergence.** Upstream
+    `SillyTavern/SillyTavern` `release` HEAD is `06bde939f` — the
+    exact fork point (merge-base = upstream HEAD; upstream had not
+    advanced past the fork point at audit time). Our branch is
+    **5 ahead / 0 behind**; all 5 commits are docs-only (charter,
+    roadmap, campaign stand-up + 2 PR merges). Diff from fork
+    point: exactly 4 files, all house documents (ROADMAP, charter,
+    campaign/PROGRESS.md, campaign/STATE.md), 1,110 insertions,
+    **no source file modified**. The fork's own `release` branch
+    is 3 ahead / 0 behind (house docs via PRs).
+  - **Branches in the fork:** `release` (default), `staging`,
+    `yrsa/our-sillytavern`, plus upstream-inherited topic branches
+    (copilot/*, feat/*, fix/*, stats-2.0). 103 tags; latest 1.19.0.
+  - **Integration points (roadmap section 2): all 15 verified
+    present** — public/scripts/openai.js (7,396 lines),
+    src/endpoints/openai.js (929), tts/alltalk.js (1,076; default
+    endpoint `http://localhost:7851` confirmed at line 16),
+    tts/index.js (1,622), stable-diffusion/index.js (5,998),
+    comfyWorkflowEditor.html, src/endpoints/stable-diffusion.js
+    (2,215), src/endpoints/speech.js (432), extensions.js,
+    events.js, st-context.js, tool-calling.js, world-info.js
+    (6,408), message-formatter.js, src/plugin-loader.js (server
+    plugins confirmed OFF by default: `enableServerPlugins`
+    defaults false, line 10). Built-in extensions: 15 folders
+    under public/scripts/extensions/ (assets, attachments,
+    caption, connection-manager, expressions, gallery, memory,
+    quick-reply, regex, stable-diffusion, third-party (empty),
+    token-counter, translate, tts, vectors) + shared.js.
+  - **Test patterns:** root package.json carries lint only
+    (eslint); tests/ is its own package — Jest unit tests
+    (`node --experimental-vm-modules jest`, jest.config.json;
+    suites incl. stable-diffusion, prompt-converters,
+    chat-integrity, private-request-filter, extensions-discover)
+    + Playwright e2e (tests/frontend/*.e2e.js, incl.
+    MessageFormatter and WorldInfoRename suites). The full
+    upstream suite was NOT run in this audit; the known-failure
+    baseline is still to be recorded at first full run (roadmap
+    section 5).
+  - **Launch smoke (Linux stand-in, PASSED):** `npm install`
+    (829 packages, TMPDIR on disk at ~/st-tmp — the laptop /tmp
+    is 95% full), then `node server.js --port 18250 --dataRoot
+    ~/st-smoke-data --configPath ~/st-smoke-config.yaml` gave
+    HTTP 200 with the SillyTavern UI title, listening on
+    127.0.0.1 only; server stopped after the check; working tree
+    left clean.
+  - **GATED (not done):** the roadmap section 5/14 Windows items
+    — tested Windows launch, reference chat, character-card
+    storage confirmation on the F15 — wait on that machine
+    waking. Recorded as GATED, never as done.
+- 2026-11-17: **RFST-002 repo-side DONE; drill GATED.**
+  - Tracked-file audit (1,014 files): `data/` tracks only
+    `.gitkeep`; **no `.jsonl` tracked anywhere**; no chats,
+    characters, credentials, tokens, keys, or model files
+    (.gguf/.safetensors/.ckpt) tracked. Name-scan hits were only
+    upstream UI files (secretKeyManager templates, secrets.css).
+    `default/` content is upstream's stock samples (Seraphina
+    sample character, Eldoria world, default workflows, presets,
+    themes) — not owner data.
+  - **Exclusion rules (.gitignore, upstream, verified in
+    place):** `/data` (modern per-user data root); legacy
+    public/ user dirs (chats, characters, User Avatars,
+    backgrounds, groups, group chats, worlds, user, themes,
+    settings preset dirs, QuickReplies, movingUI, assets);
+    `*.jsonl`; `/config.yaml`; `/config.conf`; `secrets.json`;
+    `.env`; `/backups/`; `/certs`; `/uploads/`; `/vectors/`;
+    `/cache/`; `/thumbnails`; `whitelist.txt`; `node_modules/`;
+    `plugins/`.
+  - **House rule going forward:** the pre-push hygiene scan
+    (campaign/STATE.md) runs before every push; any new
+    user-data path must be confirmed ignored (`git check-ignore`)
+    before work near it is banked.
+  - **GATED (not done):** the Windows user-data backup/restore
+    drill (roadmap section 5 acceptance) — environment-gated on
+    the F15. Recorded as GATED, never as done.
+- 2026-11-17: **Phase-1 question logged (no action taken):** our
+  modified Gufo's resident service on purpleraider binds loopback
+  `127.0.0.1:11435` today, so the F15 (Windows) cannot reach it
+  across the tailnet as-is. Roadmap Phase 1 (RFST-003/004) needs
+  a cross-device reach design (tailnet-facing bind or relay,
+  weighed against roadmap section 19 tailnet-only hardening and
+  the section 1 local-first rule). Flagged for the RFST-003/004
+  design; **no service was reconfigured.**
