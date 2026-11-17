@@ -14,7 +14,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-003 | P0 | Gufo readiness + model capability probe | DONE 2026-11-17 (local Z13 endpoint + manifest validated; cross-device probe GATED) |
 | RFST-004 | P0 | Gufo streaming chat-completion integration | DONE 2026-11-17 (local endpoint; cross-device GATED) |
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | DONE 2026-11-17 (automated snapshots pass; no formatter bug found) |
-| RFST-006 | P0 | AllTalk V2 remote G14 connection | QUEUED |
+| RFST-006 | P0 | AllTalk V2 remote G14 connection | DONE 2026-11-17 (mock-server contract suite; live render GATED on GPU headroom) |
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
@@ -341,3 +341,56 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     test was attempted, so as not to disturb the second brain;
     RFST-006 stays QUEUED and Gate B stays OPEN. RFST-007 is
     headless-testable and was completed without it.
+
+- 2026-11-17: **RFST-006 DONE - AllTalk V2 connection contract
+  proven against a mock v2 server; live render GATED on GPU
+  headroom.** New Jest suite `tests/alltalk-connection.test.js`
+  on purplelongship.
+  - **GPU gating fact (checked first, unchanged):** RTX 2060
+    6144 MiB total, 4538 MiB used by two Aesir processes of
+    another campaign, only **1201 MiB free** - below the 3.5 GB
+    safety floor. AllTalk was NOT started, nothing was
+    disturbed, and no live render was faked. The live voices
+    list + speech render against the real server stays GATED
+    on GPU headroom, exactly as RFST-003/004/007 gated theirs.
+  - **Provider audit (alltalk.js vs the real installed server
+    ~/alltalk_tts/tts_server.py + confignew.json):** MATCH on
+    /api/ready (plain text Ready), /api/voices
+    ({ voices: [wav filenames] }), the /api/tts-generate form
+    fields, the /api/tts-generate-streaming query params
+    (text, voice, language, output_file), and the default
+    endpoint port 7851 (server binds 127.0.0.1:7851).
+    Three MISMATCHES found, none fixed in this package (audit
+    + evidence only; fixes are future work): (1) the installed
+    server has NO /api/rvcvoices route at all - the provider
+    fetch falls back to Disabled and rethrows; (2)
+    /api/currentsettings returns deepspeed_status /
+    low_vram_status / current_model_loaded, while the provider
+    reads deepspeed_enabled / lowvram_enabled /
+    current_engine_loaded / engines_available (undefined
+    against this build); (3) the server returns
+    output_file_url as an ABSOLUTE URL, while the provider V2
+    branch prepends provider_endpoint, producing a
+    double-prefixed unfetchable URL - the server URL used
+    as-is renders fine.
+  - **What the suite does:** a node http mock on an ephemeral
+    127.0.0.1 port implements the real server routes/shapes
+    (fake voice names only); static tests pin the real
+    alltalk.js source (endpoint default, v2 routes, form
+    fields, streaming params); network tests exercise a
+    line-for-line replicated provider client (alltalk.js
+    cannot be imported headlessly - browser imports +
+    document.createElement at class scope; honest header in
+    the suite, RFST-007 pattern): readiness (Ready / not-Ready
+    / server-down never throws), voices parsing shape, RVC
+    404 fallback, currentsettings shape, tts-generate request
+    body + audio fetch (RIFF bytes), the double-prefix defect
+    asserted as a known mismatch, streaming params + wav
+    bytes, and failure handling (500 and server-down reject
+    catchably; a caller catch leaves chat alive).
+  - **Result:** targeted suite **21 passed / 21**; full unit
+    suite **22 suites, 505 passed / 505** (baseline 484 + 21
+    new), snapshots 2 passed; eslint clean on the new suite.
+    No production code was changed.
+  - **Gate tracker unchanged:** Gate B stays OPEN - it needs
+    the live render, which is GATED above, not done.
