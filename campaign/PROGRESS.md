@@ -29,7 +29,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-018 | P1 | Global integration status/settings panel | DONE 2026-11-17 (panel core + suite; live Windows UI panel GATED on the F15 UI host) |
 | RFST-019 | P1 | Network and transport hardening | DONE 2026-11-17 (hardening core + suite; live cross-machine audit GATED) |
 | RFST-020 | P1 | Integration tests across all three computers | DONE 2026-11-17 (mock scenario matrix suite; live three-machine run GATED on all three machines being available together) |
-| RFST-021 | P1 | Update/merge compatibility harness | QUEUED |
+| RFST-021 | P1 | Update/merge compatibility harness | DONE 2026-11-17 (mock-damage harness suite; live merge run GATED on an actual upstream merge being performed) |
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | QUEUED |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | QUEUED |
 | RFST-024 | P2 | Multi-character voice routing refinements | QUEUED |
@@ -1100,3 +1100,45 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     host, the inference host, and the services host).
     No running service was started, reconfigured, or
     disturbed for this package. Gate E stays OPEN.
+
+- 2026-11-17: **RFST-021 DONE - update/merge
+  compatibility harness.** Evidence required (roadmap
+  section 14): upstream merges do not silently break
+  adapters.
+  - **Core:** new dependency-free module
+    `src/integration/merge-compatibility-core.js`
+    inventories the fork's ten RuneForgeAI adapter/core
+    modules that actually exist on disk (second-brain
+    gateway + RAG, push-to-talk, image registry +
+    workflow router, ComfyUI idle lifecycle, integration
+    panel, transport hardening, resource queue, and the
+    scenario matrix), each with the exports the rest of
+    the fork relies on (name, kind, and arity where the
+    signature is part of the contract). Its checker loads
+    each module through an injected loader and verifies
+    every expected export, and contract probes catch
+    behavior drift an export list alone cannot. A module
+    that fails to load is a failure, never a skip.
+  - **Fails loudly, never silently:** the report is ok
+    only when every adapter passes; every failure is
+    named by type (missing-module, missing-export,
+    wrong-kind, wrong-arity, probe-failed, probe-error)
+    and `assertCompatible` throws listing all of them.
+    A mock loader with simulated merge damage (dropped
+    module, dropped export, renamed export, replaced
+    export) proves each breakage class is caught without
+    performing a real upstream merge.
+  - **Suite:** `tests/merge-compatibility.test.js`,
+    17 tests against the real adapter modules plus
+    simulated merge damage: inventory grounded in the
+    modules on disk, all real adapters pass their
+    contracts and probes, and every damage class fails
+    loudly with named failures.
+  - **Full unit suite: 800/800** (783 at RFST-020
+    HEAD + 17 new), 34 suites.
+  - **GATED (not done):** running the harness as part
+    of an actual upstream merge - gated on a merge
+    actually being performed. No upstream merge was
+    performed and no running service was started,
+    reconfigured, or disturbed for this package.
+    Gate tracker unchanged.
