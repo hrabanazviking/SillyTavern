@@ -11,7 +11,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | --- | --- | --- | --- |
 | RFST-001 | P0 | Fork baseline and upstream-diff audit | DONE 2026-11-17 (repo-side audit; Windows launch GATED) |
 | RFST-002 | P0 | Backup/restore and public repo exclusion rules | DONE 2026-11-17 (repo-side); Windows backup/restore drill GATED |
-| RFST-003 | P0 | Gufo readiness + model capability probe | QUEUED |
+| RFST-003 | P0 | Gufo readiness + model capability probe | DONE 2026-11-17 (local Z13 endpoint + manifest validated; cross-device probe GATED) |
 | RFST-004 | P0 | Gufo streaming chat-completion integration | QUEUED |
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | QUEUED |
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | QUEUED |
@@ -142,3 +142,43 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
   weighed against roadmap section 19 tailnet-only hardening and
   the section 1 local-first rule). Flagged for the RFST-003/004
   design; **no service was reconfigured.**
+
+- 2026-11-17: **RFST-003 DONE (local endpoint); cross-device GATED.**
+  Keeper probe of the real Z13 Gufo, read-only, no service changed.
+  - **Service:** `gufo-resident.service` active on purpleraider
+    since 2026-11-17 05:20 EST; supervisor 1.0.0; version string
+    `resident 1.0.0 / gufo development (4f73737)`; bind is
+    loopback-only `127.0.0.1:11435`; lazy-loading, idle unload
+    1200 s, child port 18100. (Stock Ollama also listens on
+    11434, version 0.40.16 - a separate service, not this one.)
+  - **Model manifest (validated real):** exactly one model -
+    `gemma-4-26B-A4B-it-heretic.Q8_0`, GGUF, family gemma,
+    Q8_0, 26,859,855,008 bytes on disk in the Gufo models dir.
+    `GET /v1/models` 200 lists it; `GET /api/tags` agrees.
+  - **Readiness semantics differ from upstream Gufo docs:**
+    `GET /ready` and `GET /health` both return **404** on this
+    resident build. Readiness must be probed via `GET /`
+    (200, `Gufo is running`), `GET /v1/models`, and
+    `GET /api/ps` (empty list = no model resident; after the
+    probe completion it showed the model resident with an
+    expiry, per the idle-unload lifecycle).
+  - **Real completion validated:** `POST /v1/chat/completions`,
+    non-streaming, temperature 0, max_tokens 16, prompt asking
+    for exactly `probe ok` - returned exactly `probe ok`,
+    finish_reason stop, HTTP 200 in ~6.6 s, with full usage
+    counts (77 prompt / 2 completion tokens).
+  - **Capability / error behaviour:** unknown model id returns
+    HTTP 404 `invalid_request_error`; unsupported field
+    `logit_bias` returns HTTP **400** with code
+    `unsupported_sampling` - the roadmap section 6 warning is
+    real on this build, so RFST-004 must strip/translate
+    unsupported fields in the adapter, never pass them through.
+  - **GATED (not done):** cross-device reach. The loopback-only
+    bind means no other machine can reach this endpoint today,
+    and the G14 tailnet client is logged out, so no LAN/tailnet
+    probe was possible from purplelongship; the from-Windows
+    probe waits on the F15. This is the Phase-1 question logged
+    under RFST-002, now confirmed by direct probe. No bind or
+    service change was made - that decision is RFST-004 design
+    work, weighed against section 19 tailnet-only hardening.
+  - Streaming + cancellation remain RFST-004, not claimed here.
