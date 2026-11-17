@@ -27,7 +27,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | DONE 2026-11-17 (mock-ComfyUI lifecycle suite; live unload GATED on ComfyUI being started) |
 | RFST-017 | P1 | Resource-aware queues and cancellation | DONE 2026-11-17 (mock-executor suite; live contention GATED on real services running together) |
 | RFST-018 | P1 | Global integration status/settings panel | DONE 2026-11-17 (panel core + suite; live Windows UI panel GATED on the F15 UI host) |
-| RFST-019 | P1 | Network and transport hardening | QUEUED |
+| RFST-019 | P1 | Network and transport hardening | DONE 2026-11-17 (hardening core + suite; live cross-machine audit GATED) |
 | RFST-020 | P1 | Integration tests across all three computers | QUEUED |
 | RFST-021 | P1 | Update/merge compatibility harness | QUEUED |
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | QUEUED |
@@ -1017,3 +1017,39 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
   - **GATED (not done):** the live Windows UI panel on
     the F15 host - no service was started or
     reconfigured for this package. Gate E stays OPEN.
+
+- 2026-11-17: **RFST-019 DONE - network and
+  transport hardening.** Evidence required (roadmap
+  section 14): tailnet-only, no accidental public
+  endpoints.
+  - **Core:** new dependency-free module
+    `src/settings/transport-hardening-core.js` classifies
+    bind addresses and endpoint hosts as loopback /
+    tailnet (100.64.0.0/10 CGNAT range plus *.ts.net
+    hostnames) / LAN-private (RFC1918) / link-local /
+    wildcard / public / invalid. Its audit over the
+    five RFST-018 service configs (gufo, alltalk, stt,
+    comfyui, second-brain) reports ok / warning /
+    violation / unconfigured per service: public
+    endpoints and wildcard binds are violations unless
+    an explicit opt-in flag is set (then warnings,
+    never silent ok); credentialed URLs and
+    non-http(s) schemes are always violations;
+    LAN-private endpoints warn as not tailnet-only.
+    URL validation rejects embedded credentials and
+    non-http(s) schemes, and the diagnostics report
+    builder emits per-service verdicts with endpoint
+    credentials and secret query values stripped.
+    The core is pure and injected - no live network
+    calls, no sockets opened.
+  - **Suite:** `tests/transport-hardening.test.js`,
+    28 tests against mock configs: tailnet and
+    loopback accepted, public and wildcard flagged,
+    credentialed URLs rejected, aggregation correct.
+  - **Full unit suite: 762/762** (734 at RFST-018
+    HEAD + 28 new), 32 suites.
+  - **GATED (not done):** a live audit of the actually
+    running services across all machines - gated
+    where a machine is asleep or unavailable. No
+    running service was reconfigured or disturbed
+    for this package. Gate E stays OPEN.
