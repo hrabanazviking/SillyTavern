@@ -394,3 +394,25 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     No production code was changed.
   - **Gate tracker unchanged:** Gate B stays OPEN - it needs
     the live render, which is GATED above, not done.
+
+- 2026-11-17: **RFST-008 discovery (keeper probe; package stays
+  QUEUED).**
+  - The builder dispatched this tick errored out with no report
+    and banked nothing (verified: HEAD unchanged at the RFST-006
+    commit, working tree clean); the keeper ran the light
+    discovery probes directly instead.
+  - **Gufo ASR: NOT present in this resident build.** On
+    purpleraider (up 2 days 12 h, ~121 GB RAM available), a
+    synthetic 1 s tone wav sent to the resident Gufo at
+    `POST /v1/audio/transcriptions` returned HTTP **404**
+    `not found: POST /v1/audio/transcriptions`; `GET /v1/models`
+    still lists only the single gemma chat model. The roadmap
+    section 8 Gufo Qwen3-ASR candidate therefore does not exist
+    in the locally modified build - a feature-detection verdict;
+    no service was changed.
+  - **Whisper / faster-whisper: not installed** on purpleraider
+    (no binary on PATH; both python imports fail). A benchmark
+    therefore first requires installing a backend and downloading
+    a model; nothing was installed this tick and no backend is
+    selected yet.
+  - RFST-008 remains QUEUED; Gate B unchanged.
