@@ -12,7 +12,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-001 | P0 | Fork baseline and upstream-diff audit | DONE 2026-11-17 (repo-side audit; Windows launch GATED) |
 | RFST-002 | P0 | Backup/restore and public repo exclusion rules | DONE 2026-11-17 (repo-side); Windows backup/restore drill GATED |
 | RFST-003 | P0 | Gufo readiness + model capability probe | DONE 2026-11-17 (local Z13 endpoint + manifest validated; cross-device probe GATED) |
-| RFST-004 | P0 | Gufo streaming chat-completion integration | QUEUED |
+| RFST-004 | P0 | Gufo streaming chat-completion integration | DONE 2026-11-17 (local endpoint; cross-device GATED) |
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | QUEUED |
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | QUEUED |
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | QUEUED |
@@ -182,3 +182,48 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     service change was made - that decision is RFST-004 design
     work, weighed against section 19 tailnet-only hardening.
   - Streaming + cancellation remain RFST-004, not claimed here.
+- 2026-11-17: **RFST-004 DONE (local endpoint); cross-device GATED.**
+  Real streaming probes against the local Z13 Gufo on purpleraider
+  (read-only/generation-only, no service changed), logs in
+  ~/st-tmp/rfst004_probe.log + rfst004_rec.log on purpleraider.
+  - **Streaming (a):** POST /v1/chat/completions, stream=true,
+    long character system prompt (Sigrun shield-maiden card,
+    ~1,600 chars, repeated traits). **157 SSE chunks**, first
+    chunk at **0.016 s**, total **8.33 s**, finish_reason
+    **stop**, assembled **657 chars**, coherent and
+    character-specific (addressed user as "wanderer", named
+    Bjorn, the fjord, and the three boats lost to the ice).
+  - **Unsupported field under streaming (c):** same request
+    plus `logit_bias` returned HTTP **400** with body
+    `{"error":{"message":"request field 'logit_bias' is not supported","type":"invalid_request_error","code":"unsupported_sampling"}}`
+    - a readable diagnostic, prompt not corrupted. SillyTavern
+    side: `forwardFetchResponse` (src/util.js) forwards that
+    status + body to the client; the CUSTOM chat-completion
+    path (src/endpoints/backends/chat-completions.js) passes
+    `logit_bias` through, and the existing
+    `custom_exclude_body` mechanism is the documented way to
+    strip it for Gufo - no new adapter code was proven
+    necessary this package, so none was invented.
+  - **Cancellation (b):** long streaming generation aborted
+    client-side after **5 chunks at 0.23 s**. An immediate
+    follow-up completion returned HTTP **502** (Gufo tears
+    down / unloads the model on abort: GET /api/ps was empty
+    afterwards), but recovery is bounded, not permanent:
+    polling showed HTTP **200 at 11.2 s** returning exactly
+    `probe ok`; a later retry series went **3/3 HTTP 200**
+    (first reload 5.74 s, then 0.46 s / 0.48 s). Next turn is
+    not permanently broken; there is a transient ~11 s
+    reload window after an abort. ST server side already
+    aborts the upstream fetch on client socket close
+    (AbortController in chat-completions.js).
+  - **Code-path checks (purplelongship, no code changed):**
+    CUSTOM source is the configured path (custom_url, no
+    automatic cloud fallback in that branch); text generation
+    path is independent of TTS/STT/ComfyUI/second-brain code.
+    Jest suites were NOT run: tests/node_modules is not
+    installed in the clone and an npx fallback failed on ESM
+    loading - recorded as not run, not as passed.
+  - **GATED (not done):** cross-device streaming from
+    purplelongship / the F15 and the Windows UI checks -
+    the loopback-only bind (RFST-002/003 Phase-1 question)
+    still prevents them; no bind or service change was made.
