@@ -17,7 +17,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | DONE 2026-11-17 (mock-server contract suite; live render GATED on GPU headroom) |
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED (GATED - live benchmark awaits a backend install on the Z13: Gufo ASR route 404, whisper not installed; see docs commit 2cc98f1ea) |
-| RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
+| RFST-009 | P1 | Push-to-talk and transcript correction | DONE 2026-11-17 (mock-STT suite; live transcription GATED on an STT backend on the Z13 - RFST-008) |
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query PROVEN 2026-11-17 under the RFST-011/012 live legs) |
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search PROVEN 2026-11-17 - see the live-leg entry in Notes) |
 | RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection PROVEN 2026-11-17 - see the live-leg entry in Notes) |
@@ -868,3 +868,53 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     live: one read-only all-collections retrieval service,
     working for every character automatically, with no
     character-specific setup.
+- 2026-11-17: **RFST-009 DONE - no duplicate messages plus
+  typed fallback proven against mock STT; live transcription
+  GATED on an STT backend on the Z13 (RFST-008).** New
+  dependency-free core `src/voice/push-to-talk-core.js`
+  implements the push-to-talk session against the
+  OpenAI-compatible STT contract of section 8 (POST
+  /v1/audio/transcriptions), with the client and clock
+  injected. New Jest suite `tests/push-to-talk.test.js`
+  (29 tests) exercises the real core against a mock STT
+  client.
+  - **Lifecycle:** idle -> recording -> uploading ->
+    transcribing -> preview -> send. Partial transcripts
+    are held apart from final ones (previewKind) and can
+    never be sent; the user may edit/correct the final
+    transcript in preview before send. Auto-send fires only
+    when explicitly enabled (default off) and then exactly
+    once. Capture, upload, transcription and round-trip
+    timing are recorded on the session.
+  - **Cancel and retry:** cancel during recording or during
+    upload/transcription drops any late result; retry reuses
+    the captured audio as a fresh attempt.
+  - **No double-send:** each finalized transcript cycle
+    carries one send token; a second send for the same
+    token - after reconnect or a partial-then-final
+    sequence - is rejected as a duplicate and never
+    re-invokes the host send callback. A new capture is a
+    new logical message with a new token.
+  - **Typed fallback:** when the STT client errors or is
+    absent, manual typing enters the same preview / edit /
+    send path (source: 'typed') as a fully functional path.
+  - **Bounded and local-only:** audio format allowlist
+    (webm/ogg/wav/mp3/m4a/flac), max upload size and a
+    request timeout are enforced; the STT endpoint must be
+    loopback, private, LAN or tailnet - public/cloud
+    recognizer endpoints are rejected before any upload.
+  - **TTS-playback guard:** beginCapture is rejected while
+    the host's playbackActive flag is set, so TTS playback
+    can never be captured back into a user message.
+  - **Result:** targeted suite **29 passed / 29**; full
+    unit suite **29 suites, 674 passed / 674** (645 at
+    RFST-016 HEAD measured this tick + 29 new), snapshots
+    2 passed; eslint clean on the new core and suite. No
+    production wiring was changed and no service was
+    started, installed or reconfigured.
+  - **GATED (not done):** live transcription against a real
+    STT backend - none is installed on the Z13 (RFST-008:
+    Gufo ASR route 404, whisper not installed), and nothing
+    was installed for this package, exactly as RFST-013..016
+    gated their live legs. Gate B stays OPEN - it needs the
+    RFST-008 live benchmark and this live transcription leg.
