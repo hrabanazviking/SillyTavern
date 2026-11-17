@@ -32,7 +32,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-021 | P1 | Update/merge compatibility harness | DONE 2026-11-17 (mock-damage harness suite; live merge run GATED on an actual upstream merge being performed) |
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite; live end-to-end turn-taking GATED on an STT backend on the Z13 - RFST-008 - and on live TTS playback) |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | DONE 2026-11-17 (mock router/suggester suite; live image generation GATED on ComfyUI being started) |
-| RFST-024 | P2 | Multi-character voice routing refinements | QUEUED |
+| RFST-024 | P2 | Multi-character voice routing refinements | DONE 2026-11-17 (mock renderer suite; live group voice render GATED on live AllTalk render / GPU headroom - RFST-006) |
 | RFST-025 | P2 | Packaging and one-click local diagnostics | QUEUED |
 
 ## Release gates (roadmap section 16)
@@ -1268,3 +1268,68 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     (the RFST-013..016 live legs). No running service was
     started, reconfigured, or disturbed for this package,
     and ComfyUI was not started. Gate tracker unchanged.
+
+- 2026-11-17: **RFST-024 DONE - multi-character voice
+  routing refinements.** Evidence required (roadmap
+  section 14): "Group chat speaker handling tested."
+  - **Core:** new dependency-free module
+    `src/voice/multi-character-voice-core.js` implements
+    a group-chat voice router against injected
+    collaborators (renderer / TTS client, segmenter,
+    clock - the RFST-009/022 pattern). It builds ONLY on
+    the RFST-007 segmentation output shape
+    ({ type, text } from parseMessageSegments) and the
+    RFST-006 AllTalk contract seam: messages arrive
+    already segmented, or as raw text plus an injected
+    segmenter with that same output shape; segmentation
+    logic is never duplicated. The core only SELECTS
+    routes; dispatch happens through the injected
+    renderer seam exactly once per routed segment.
+  - **Speaker handling:** dialogue segments are voiced
+    by the message speaker's per-character assigned
+    voice; narration segments (RFST-007 types 'other'
+    and 'action', plus 'narration') are voiced by the
+    narrator voice. Messages are routed in list order
+    and segments in message order, so speaker changes
+    across and within a turn keep their turn order.
+    Routing is DISABLED by default (the global voice
+    off state): while disabled, no routing happens and
+    nothing is dispatched.
+  - **Fallback + honesty:** a KNOWN character with no
+    voice assignment uses the configured default /
+    fallback voice, and that fallback use is always
+    recorded on the route, in the result, and in the
+    router counters - a voice is never invented or
+    randomized silently, and with no fallback voice
+    configured the segment is reported unrouted
+    (`voice_not_assigned`), never guessed. An UNKNOWN
+    speaker (in neither the roster nor the
+    assignments) is reported in unknownSpeakers and
+    its dialogue is NOT voiced as someone else;
+    narration attached to it still goes to the
+    narrator voice. Nothing ever throws: malformed
+    messages, a missing renderer, and renderer
+    failures are recorded and reported.
+  - **No duplicates, no mutation:** each message id
+    (or a content fingerprint when no id is given) may
+    be routed only once per router; a repeat is
+    reported as a duplicate and dispatches nothing,
+    in the RFST-009 dedupe spirit. Routing never
+    mutates chat history or the routed messages: the
+    injected history is only fingerprinted, never
+    written, and every result reports
+    historyUnchanged (the RFST-022/023 pattern).
+  - **Suite:** `tests/multi-character-voice.test.js`,
+    40 tests against a mock renderer and the real
+    RFST-007 segmenter: default-off behavior, assigned
+    / narrator / fallback resolution, in-order speaker
+    changes, unknown-speaker honesty, duplicate
+    rejection and reset, history-unchanged proof,
+    renderer failure honesty, and malformed input.
+  - **Full unit suite: 901/901** (861 at RFST-023
+    HEAD + 40 new), 37 suites.
+  - **GATED (not done):** live group voice render -
+    GATED on live AllTalk render / GPU headroom per
+    RFST-006 gating. No running service was started,
+    reconfigured, or disturbed for this package, and
+    AllTalk was not started. Gate tracker unchanged.
