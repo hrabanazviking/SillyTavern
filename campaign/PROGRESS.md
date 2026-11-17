@@ -22,7 +22,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
 | RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection GATED on a scoped read key) |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
-| RFST-014 | P1 | Image model/workflow inventory and benchmarks | QUEUED |
+| RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
 | RFST-015 | P1 | Automatic image workflow router | QUEUED |
 | RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | QUEUED |
 | RFST-017 | P1 | Resource-aware queues and cancellation | QUEUED |
@@ -639,3 +639,83 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     leg waits on ComfyUI being started under a roadmap
     step / the owner word. Gate D stays OPEN - it needs
     that live run plus RFST-014/015/016.
+
+- 2026-11-17: **RFST-014 DONE - reviewed local registry
+  with scoring proven by suite; live benchmarks GATED on
+  ComfyUI being started.** New dependency-free core
+  `src/media/image-registry-core.js`. New Jest suite
+  `tests/image-registry.test.js` imports the real core
+  (RFST-007/011/012 pattern, nothing replicated) and reads
+  the real bundled workflow JSON files.
+  - **Inventory (read-only probe of purpleraider, names +
+    sizes only; no service started, nothing reconfigured):**
+    ComfyUI 0.45.0 is installed at /home/volmarr/ai/ComfyUI
+    but NOT running (no process, port 8188 closed). Its own
+    models/ tree holds only placeholder files; the real
+    models live in the vault its extra_model_paths config
+    points at. Found there: **15 checkpoints** (SD1.5:
+    CyberRealistic, epiCRealism, Realistic Vision V6 fp16 +
+    full, v1-5-pruned-emaonly; SDXL: JuggernautXL Ragnarok,
+    RealVisXL V5, Lustify V9; Pony: Babes / Realism / Ultra
+    Realistic by Stable Yogi, PonyRealism V22; Illustrious:
+    Babes, Realism / Ultra Realistic by Stable Yogi),
+    **5 diffusion models** (Flux.1 dev, Chroma1 Base / HD /
+    HD-Flash, Z-Image Turbo unlock), **2 LoRAs** (chrxma-v2,
+    flux lustly-ai v1), **3 text encoders** (clip_l,
+    qwen_3_4b, t5xxl_fp16), **1 VAE** (ae). Custom nodes:
+    only the stock examples - notably NO comfyui-tooling-
+    nodes. The same checkpoint names also appear under the
+    A1111 tree on that machine; they were counted once, as
+    ComfyUI-vault entries.
+  - **Registry (28 entries):** the 26 vault models plus the
+    2 workflows bundled with SillyTavern, analysed
+    structurally with the core's own analyzeWorkflow:
+    Default_Comfy_Workflow.json (API format, 7 nodes,
+    KSampler + CheckpointLoaderSimple, %prompt% / %model% /
+    %seed% style placeholders, no external nodes) and
+    Char_Avatar_Comfy_Workflow.json (API format, 9 nodes,
+    img2img avatar; requires ETN_LoadImageBase64 from
+    comfyui-tooling-nodes, which is NOT installed - recorded
+    on the entry as a compatibility note, not hidden).
+    Entries carry id/kind/categories/tags/priority/source/
+    sizeBytes/family/license only - no absolute paths, no
+    assets. Family labels are a name-and-size heuristic and
+    every entry says so (familyBasis); every license is
+    honestly 'unknown' (per-model terms not yet reviewed).
+  - **Scoring:** scoreEntry is a pure deterministic function
+    of KNOWN signals only - availability (30), curated
+    priority (20), benchmark coverage (20), measured quality
+    (30: anatomy / identity continuity / prompt fidelity /
+    1 - artifactRate; runtime + memory are coverage-only,
+    never normalised into fake quality). Unknown dimensions
+    score nothing and are reported by name. rankEntries
+    filters by category/kind/tags and sorts score desc,
+    priority desc, id asc (order-independent, proven).
+    resolveSelection is the RFST-015 seam: a manual override
+    wins when it names a real non-missing entry; unknown or
+    missing overrides fail honestly with the automatic
+    fallback attached; no candidates is a clean failure.
+  - **Suite proves (25 tests):** the shipped registry
+    validates clean (unique ids, valid categories, benchmark
+    ranges); inventory counts + spot-checked byte sizes
+    match the probe; category coverage spans all six roadmap
+    categories (image-editing only via the avatar workflow);
+    validation rejects duplicates / bad kinds / out-of-range
+    benchmarks while accepting measured runtime/memory;
+    scoring determinism, monotonicity in known benchmarks,
+    artifact-rate sensitivity, tie-breaking, non-mutation;
+    override applied / not-found / unavailable / empty.
+  - **Result:** targeted suite **25 passed / 25**; full
+    unit suite **26 suites, 588 passed / 588** (baseline
+    563 + 25 new), snapshots 2 passed; eslint clean on the
+    new core and suite. No production wiring was changed.
+  - **GATED (not done):** real benchmark scores - running
+    the consistent private benchmark prompts (roadmap
+    section 10) needs a live ComfyUI, which was not running
+    and was not started for this package. Every benchmark
+    dimension in the shipped registry is therefore null
+    (unknown), the suite asserts exactly that, and no number
+    was invented. Per-model license review is likewise not
+    done (all 'unknown'). Gate D stays OPEN - it needs the
+    RFST-013 live run, these live benchmarks, and
+    RFST-015/016.
