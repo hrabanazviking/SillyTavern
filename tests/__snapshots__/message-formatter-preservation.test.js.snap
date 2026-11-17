@@ -1,0 +1,47 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`RFST-005 raw preservation through MessageFormatter stages raw corpus matches snapshots 1`] = `
+{
+  "blankLineBreaks": "First paragraph of narration.
+
+*An action after the break.*
+
+"Speech in its own paragraph."",
+  "boldAndItalic": "**She slams the door.** Then, *quietly,* she adds, "That is final."",
+  "canonical": "*She places the rune stone on the table and smiles.* "Come closer. I have something to show you."",
+  "curlyQuotes": "“Come closer,” *she says softly.* “I have something to show you.”",
+  "longEmoteChain": "*She rises.* *She crosses the room.* *She kneels.* "There. Now we can begin."",
+  "mixedDialogueNarration": "The hall was quiet. *He sets down his cup.* "You came a long way." She nods. "Farther than you know."",
+  "multiLine": "*She stands.*
+"First line of speech."
+*She sits again, slowly.*
+"Second line, after the pause."",
+  "nestedQuotation": "*She leans in and whispers,* "He told me, 'Do not open the gate,' and then he was gone."",
+  "quotesInsideAction": "*"Do not move," she hisses, blade drawn.* The room holds its breath.",
+  "underscoreEmphasis": "_She smiles faintly._ "Underscores carry tone too."",
+  "unicodeAndRunes": "*She carves ᚠ ᚢ ᚦ into the stone — þetta er seiðr.* "Þú ert velkominn, vinur." ✨",
+  "unmatchedAsteriskMath": "The price is 3 * 5 = 15 silver, *she notes, counting the coins.*",
+}
+`;
+
+exports[`RFST-005 rendered output preserves visible text rendered HTML matches snapshots 1`] = `
+{
+  "blankLineBreaks": "<p>First paragraph of narration.</p>
+<p><em>An action after the break.</em></p>
+<p>"Speech in its own paragraph."</p>",
+  "boldAndItalic": "<p><strong>She slams the door.</strong> Then, <em>quietly,</em> she adds, "That is final."</p>",
+  "canonical": "<p><em>She places the rune stone on the table and smiles.</em> "Come closer. I have something to show you."</p>",
+  "curlyQuotes": "<p>“Come closer,” <em>she says softly.</em> “I have something to show you.”</p>",
+  "longEmoteChain": "<p><em>She rises.</em> <em>She crosses the room.</em> <em>She kneels.</em> "There. Now we can begin."</p>",
+  "mixedDialogueNarration": "<p>The hall was quiet. <em>He sets down his cup.</em> "You came a long way." She nods. "Farther than you know."</p>",
+  "multiLine": "<p><em>She stands.</em><br />
+"First line of speech."<br />
+<em>She sits again, slowly.</em><br />
+"Second line, after the pause."</p>",
+  "nestedQuotation": "<p><em>She leans in and whispers,</em> "He told me, 'Do not open the gate,' and then he was gone."</p>",
+  "quotesInsideAction": "<p><em>"Do not move," she hisses, blade drawn.</em> The room holds its breath.</p>",
+  "underscoreEmphasis": "<p><em>She smiles faintly.</em> "Underscores carry tone too."</p>",
+  "unicodeAndRunes": "<p><em>She carves ᚠ ᚢ ᚦ into the stone — þetta er seiðr.</em> "Þú ert velkominn, vinur." ✨</p>",
+  "unmatchedAsteriskMath": "<p>The price is 3 * 5 = 15 silver, <em>she notes, counting the coins.</em></p>",
+}
+`;

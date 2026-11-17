@@ -13,7 +13,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-002 | P0 | Backup/restore and public repo exclusion rules | DONE 2026-11-17 (repo-side); Windows backup/restore drill GATED |
 | RFST-003 | P0 | Gufo readiness + model capability probe | DONE 2026-11-17 (local Z13 endpoint + manifest validated; cross-device probe GATED) |
 | RFST-004 | P0 | Gufo streaming chat-completion integration | DONE 2026-11-17 (local endpoint; cross-device GATED) |
-| RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | QUEUED |
+| RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | DONE 2026-11-17 (automated snapshots pass; no formatter bug found) |
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | QUEUED |
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | QUEUED |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
@@ -227,3 +227,49 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     purplelongship / the F15 and the Windows UI checks -
     the loopback-only bind (RFST-002/003 Phase-1 question)
     still prevents them; no bind or service change was made.
+- 2026-11-17: **RFST-005 DONE — automated snapshots pass.**
+  New Jest suite `tests/message-formatter-preservation.test.js`
+  (+ `tests/__snapshots__/message-formatter-preservation.test.js.snap`)
+  on purplelongship; tests deps installed with
+  `npm ci` in tests/ (TMPDIR=~/st-tmp).
+  - **Corpus (12 cases):** the roadmap canonical example
+    (*She places the rune stone on the table and smiles.*
+    "Come closer. I have something to show you."), complex
+    markdown, nested quotation, curly quotes, action
+    asterisks, quotes inside actions, bold+italic, underscore
+    emphasis, a lone unpaired asterisk (3 * 5), Unicode and
+    runes (ᚠ ᚢ ᚦ, þ/ð, emoji), single line breaks, blank-line
+    paragraph breaks, mixed dialogue/narration, emote chains.
+  - **What runs for real:** the real `MessageFormatter`
+    singleton stages (beforeRegex / afterRegex /
+    afterMarkdown, `../public/script.js` mocked per the
+    prompt-converters.test.js pattern) must return every raw
+    case byte-for-byte with no hooks registered; the real
+    Showdown converter configured exactly as
+    `reloadMarkdownProcessor()` in public/script.js renders
+    each case, and its visible text (tags stripped, entities
+    decoded) must equal the hand-written expected text —
+    raw == persisted/displayed canonical content modulo the
+    intended markdown rendering (paired emphasis markers
+    become <em>/<strong> and are not visible characters).
+    Canonical case asserts the <em> action and the quoted
+    dialogue both survive verbatim.
+  - **Result:** targeted suite **39 passed / 39**,
+    snapshots **2 passed**; full unit suite **20 suites,
+    450 passed / 450** (command:
+    `node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.json`
+    in tests/); eslint on the new file clean.
+  - **No formatter bug found:** emotes/asterisks are NOT
+    stripped by the pipeline stages or by Showdown rendering;
+    no production code was changed. Three early failures were
+    defects in the test's own expected-text model (paragraph
+    joining, a regex that mispaired the lone asterisk,
+    `<br />\n` double-counting), fixed in the test only and
+    recorded here so they are not mistaken for product bugs.
+  - **Scope note (honest):** the browser-only legs of
+    messageFormatting (custom regex rules, fixMarkdown,
+    DOMPurify) are not exercised headlessly — script.js needs
+    the full browser app; the existing Playwright suite
+    tests/frontend/MessageFormatter.e2e.js covers the hook
+    API in-browser. Windows/F15 UI confirmation remains
+    GATED on that machine waking, as with RFST-001..004.
