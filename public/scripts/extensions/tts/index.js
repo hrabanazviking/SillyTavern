@@ -18,6 +18,7 @@ import { VITSTtsProvider } from './vits.js';
 import { GSVITtsProvider } from './gsvi.js';
 import { SBVits2TtsProvider } from './sbvits2.js';
 import { AllTalkTtsProvider } from './alltalk.js';
+import { parseMessageSegments, joinQuotedBlocks } from './segmentation.js';
 import { CosyVoiceProvider } from './cosyvoice.js';
 import { SpeechT5TtsProvider } from './speecht5.js';
 import { AzureTtsProvider } from './azure.js';
@@ -534,69 +535,6 @@ async function tts(text, voiceId, char, voiceMapKey = null) {
     completeTtsJob();
 }
 
-function parseMessageSegments(text) {
-    if (!extension_settings.tts.multi_voice_enabled) {
-        return [{ type: 'other', text: text }];
-    }
-
-    const segments = [];
-    const segmentRegex = /(\*[^*]*?\*)|(".*?")|(\u201C.*?\u201D)|(\u00AB.*?\u00BB)|(\u300C.*?\u300D)|(\u300E.*?\u300F)|(\uFF02.*?\uFF02)/gim;
-    let lastIndex = 0;
-    let match;
-
-    segmentRegex.lastIndex = 0;
-
-    while ((match = segmentRegex.exec(text)) !== null) {
-        // Add other text before this match
-        if (match.index > lastIndex) {
-            const otherText = text.substring(lastIndex, match.index).trim();
-            if (otherText && otherText.length > 0) {
-                segments.push({ type: 'other', text: otherText });
-            }
-        }
-
-        const matchedText = match[0];
-        let segmentType = 'other';
-        let content = '';
-
-        if (match[1]) {
-            // Asterisk content (*action*)
-            segmentType = 'action';
-            content = matchedText.slice(1, -1);
-        } else if (match[2] || match[3] || match[4] || match[5] || match[6] || match[7]) {
-            // Various quote types ("dialogue")
-            segmentType = 'dialogue';
-            content = matchedText.slice(1, -1);
-        }
-
-        // Trim and check for actual content
-        content = content.trim();
-        if (content.length > 0) {
-            segments.push({
-                type: segmentType,
-                text: content,
-            });
-        }
-
-        lastIndex = match.index + matchedText.length;
-    }
-
-    // Add remaining other text after last match
-    if (lastIndex < text.length) {
-        const otherText = text.substring(lastIndex).trim();
-        if (otherText.length > 0) {
-            segments.push({ type: 'other', text: otherText });
-        }
-    }
-
-    // If no segments found and not empty, treat whole text as other text
-    if (segments.length === 0 && text.trim().length > 0) {
-        segments.push({ type: 'other', text: text.trim() });
-    }
-
-    return segments;
-}
-
 async function processTtsQueue() {
     // Called each moduleWorker iteration to pull chat messages from queue
     if (currentTtsJob || ttsJobQueue.length <= 0 || audioPaused) {
@@ -730,7 +668,7 @@ async function processTtsQueue() {
         }
 
         // Parse message into segments if multi-voice is enabled
-        const segments = parseMessageSegments(text);
+        const segments = parseMessageSegments(text, { multiVoiceEnabled: extension_settings.tts.multi_voice_enabled });
 
         if (segments.length === 0) {
             console.warn('No valid segments found in text.');
@@ -760,82 +698,6 @@ async function processTtsQueue() {
         console.error(error);
         currentTtsJob = null;
     }
-}
-
-/**
- * Extract and join quoted blocks with proper matching pairs and nesting.
- * - Captures outermost quotes and everything inside (including different inner quote styles).
- * - Requires matching opener/closer style (e.g., “ ... ”, 「 ... 」, « ... », etc.).
- * - Ignores incomplete/unclosed quotes (doesn't include them in the result).
- * - Symmetric quotes like "..." and ＂...＂ are supported (not nesting the same symmetric style).
- *
- * @param {string} text - The text to process
- * @param {object} [opts={}] - Optional options object
- * @param {string} [opts.separator=' ... '] - String to join multiple quoted blocks
- * @param {boolean} [opts.includeQuotes=true] - Keep the quote chars around the captured text
- * @param {boolean} [opts.returnEmptyOnNoQuotes=false] - Return an empty string if no quotes are found
- * @param {Array<[string,string]>} [opts.pairs] - Custom quote pairs; defaults cover EN/DE/FR/JP
- * @returns {string} The joined quoted blocks, or the original text if no quotes found
- */
-function joinQuotedBlocks(text, opts = {}) {
-    const {
-        separator = ' ... ',
-        includeQuotes = true,
-        returnEmptyOnNoQuotes = false,
-        pairs = [
-            // typographic doubles
-            ['„', '“'],          // DE low-high
-            ['“', '”'],          // EN
-            ['«', '»'],          // FR open « close »
-            ['»', '«'],          // Some locales open »
-            // typographic singles
-            ['‘', '’'],
-            ['‚', '‘'],
-            // Japanese corner quotes
-            ['「', '」'],
-            ['『', '』'],
-            // symmetric doubles
-            ['"', '"'],
-            ['＂', '＂'],
-        ],
-    } = opts;
-
-    if (!text || typeof text !== 'string') return text;
-
-    const openToClose = Object.fromEntries(pairs);
-
-    const segments = [];
-    const stack = []; // [{ opener, expectedClose, start }]
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        const top = stack[stack.length - 1];
-
-        // Prefer closing the current open pair if the char matches its expected closer
-        if (top && ch === top.expectedClose) {
-            const finished = stack.pop();
-            if (stack.length === 0) {
-                // Only collect outermost quotes (contains all nested content)
-                segments.push(text.slice(finished.start, i + 1));
-            }
-            continue;
-        }
-
-        // Otherwise, see if this is a new opener
-        if (openToClose[ch]) {
-            stack.push({ opener: ch, expectedClose: openToClose[ch], start: i });
-            continue;
-        }
-
-        // If it's a stray closer that doesn't match current top, ignore
-    }
-
-    if (!segments.length) return returnEmptyOnNoQuotes ? '' : text;
-
-    const cleaned = includeQuotes
-        ? segments
-        : segments.map(s => s.slice(1, -1)); // all defined pairs are single-char quotes
-
-    return cleaned.join(separator);
 }
 
 async function playFullConversation() {

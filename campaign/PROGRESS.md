@@ -15,7 +15,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-004 | P0 | Gufo streaming chat-completion integration | DONE 2026-11-17 (local endpoint; cross-device GATED) |
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | DONE 2026-11-17 (automated snapshots pass; no formatter bug found) |
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | QUEUED |
-| RFST-007 | P0 | TTS text segmentation, non-destructive narration | QUEUED |
+| RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
 | RFST-010 | P0 | Discover second-brain query schema | QUEUED |
@@ -273,3 +273,71 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     tests/frontend/MessageFormatter.e2e.js covers the hook
     API in-browser. Windows/F15 UI confirmation remains
     GATED on that machine waking, as with RFST-001..004.
+
+- 2026-11-17: **RFST-007 DONE - spoken segments accurate,
+  visible emotes unchanged (headless evidence).** New Jest
+  suite `tests/tts-segmentation.test.js` on purplelongship.
+  - **What was inspected:** the real TTS path in
+    `public/scripts/extensions/tts/index.js` -
+    `processAndQueueTtsMessage` clones the message
+    (structuredClone), `processTtsQueue` derives a spoken copy
+    (macro substitution, optional codeblock/tag stripping,
+    asterisk handling per pass_asterisks /
+    narrate_dialogues_only, optional regex, narrate_quoted_only
+    via joinQuotedBlocks, image-markdown removal, provider
+    processText, whitespace collapse) and segments it with
+    `parseMessageSegments`; per-segment jobs keep the ORIGINAL
+    `mes`, so visible chat text is never rewritten by TTS.
+    Voice routing per segment type lives in the segmented-job
+    branch (dialogue = ("Quotes"), action = (*Text inside
+    asterisks*), other = (Other text)). alltalk.js has no
+    processText/segmentation of its own.
+  - **Extraction (the only production change):**
+    `parseMessageSegments` + `joinQuotedBlocks` were pure
+    functions trapped in index.js, which cannot be imported
+    headlessly (~40 browser providers, Audio +
+    ModuleWorkerWrapper at module scope, full script.js graph).
+    They were moved VERBATIM to the new dependency-free
+    `public/scripts/extensions/tts/segmentation.js`; index.js
+    imports them back and passes `multi_voice_enabled` in as an
+    option (its app default is false). No behaviour change;
+    both files pass node --check and eslint.
+  - **Corpus:** canonical example, emote-only, dialogue-only,
+    plain narration, mixed narration+action+dialogue (order +
+    types exact), multi-sentence dialogue, quotes inside
+    actions, nested single quotes in dialogue, curly quotes,
+    guillemets, Japanese corner quotes, bold markdown (degrades
+    to narration, no asterisks spoken), emote chains,
+    empty/whitespace, empty action, unclosed quote.
+    Non-destructive assertions: the input string is never
+    mutated, and for the core corpus the segments losslessly
+    partition the message (re-wrapping segments in their
+    delimiters reproduces the original byte-for-byte).
+  - **Result:** targeted suite **34 passed / 34**; full unit
+    suite **21 suites, 484 passed / 484** (baseline 450 + 34
+    new), snapshots 2 passed; eslint clean on the new test,
+    segmentation.js, and index.js.
+  - **Honest limits (not claimed):** segments carry only
+    { type, text } - trimmed copies; production provides NO
+    character offsets, so the roadmap section 7 offset wording
+    remains unmet by the current code and is future work, not
+    evidence here. Known segmenter limitations, asserted as
+    word-survival only in the suite: a lone asterisk (math
+    "3 * 5") can mispair with an emote opener when
+    pass_asterisks and multi-voice are combined (the default
+    pipeline strips asterisks before segmentation, so it
+    cannot occur there), and underscore emphasis is not
+    recognised as an action. Emphasis asterisks inside a
+    dialogue segment are retained in its text (stripped
+    earlier by the default pass_asterisks=false preprocessing).
+    The browser-bound legs of processTtsQueue (settings
+    preprocessing, voice routing, provider calls) are not
+    exercised headlessly.
+  - **RFST-006 gating fact (recorded, unchanged):** AllTalk V2
+    is installed at ~/alltalk_tts (XTTS v2, port 7851, voices
+    on disk) but NOT running, and the second brain (Aesir
+    serve, port 18434) already holds 4538/6144 MiB of the RTX
+    2060 GPU. AllTalk was NOT started and no live voice/render
+    test was attempted, so as not to disturb the second brain;
+    RFST-006 stays QUEUED and Gate B stays OPEN. RFST-007 is
+    headless-testable and was completed without it.
