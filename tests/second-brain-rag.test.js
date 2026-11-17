@@ -237,6 +237,19 @@ describe('graceful failure: chat always continues', () => {
         expect(result.injected).toBe(true);
         expect(result.snippets.map(s => s.id)).toEqual(['ok']);
     });
+
+    test('keyword-mode hits (sim 0, relevance in score) still inject', async () => {
+        // Regression: the upstream keyword/degraded mode reports sim 0
+        // for every hit with the real relevance in score; treating the
+        // finite 0 as the hit's score silently filtered out everything.
+        const { searchFn } = mockGateway([
+            { id: 'kw1', doc_id: 'dkw1', sim: 0, score: 0.42, text: 'Keyword-mode knowledge about longship keels.', doc_title: 'Fake KW 1', source: 'fake-kw' },
+            { id: 'kw2', doc_id: 'dkw2', sim: 0, score: 0.05, text: 'Second keyword-mode passage about sailcloth.', doc_title: 'Fake KW 2', source: 'fake-kw' },
+        ]);
+        const result = await createRagInjector({ searchFn, config: { minScore: 0.01 } }).inject(CHAT);
+        expect(result.injected).toBe(true);
+        expect(result.snippets.map(snippet => snippet.id)).toEqual(['kw1', 'kw2']);
+    });
 });
 
 describe('loop and repetition suppression', () => {

@@ -18,9 +18,9 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED (GATED - live benchmark awaits a backend install on the Z13: Gufo ASR route 404, whisper not installed; see docs commit 2cc98f1ea) |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
-| RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
-| RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
-| RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection GATED on a scoped read key) |
+| RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query PROVEN 2026-11-17 under the RFST-011/012 live legs) |
+| RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search PROVEN 2026-11-17 - see the live-leg entry in Notes) |
+| RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection PROVEN 2026-11-17 - see the live-leg entry in Notes) |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
 | RFST-015 | P1 | Automatic image workflow router | DONE 2026-11-17 (router core + suite; live routing GATED on ComfyUI being started) |
@@ -41,7 +41,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | --- | --- | --- |
 | A | Text baseline | OPEN |
 | B | Natural voice | OPEN |
-| C | Shared knowledge | OPEN |
+| C | Shared knowledge | PASSED 2026-11-17 (RFST-011/012 live legs proven; see Notes) |
 | D | Media | OPEN |
 | E | Daily-driver reliability | OPEN |
 | F | Public fork readiness | OPEN |
@@ -811,3 +811,60 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     awaits a backend install on the Z13 (Gufo ASR route 404,
     whisper not installed; docs commit 2cc98f1ea). Not
     attempted this tick; RFST-009 likewise untouched.
+
+- 2026-11-17: **RFST-011/012 LIVE LEGS DONE - scoped read-only
+  key issued and registered; Gate C PASSED.** Volmarr ordered
+  the key made; the finish below was verified end to end
+  against the real second brain (statuses and counts only;
+  no records were read into this ledger).
+  - **The key:** a bearer token registered in the second
+    brain's OWN security store via its create_key mechanism -
+    name "SillyTavern gateway read-only (RFST-011/012)", key id
+    643c265b213b609c5a530957, scopes ["read"] ONLY (no ingest),
+    not revoked, 1-year expiry (to 2027-11-17). The env token
+    was hash-matched to exactly this key. Server-side only:
+    the machine integration profile outside the git tree
+    (/home/volmarr/.config/sillytavern-forge/second-brain.env,
+    mode 600) holds SECOND_BRAIN_URL + SECOND_BRAIN_READ_TOKEN
+    + the documented SECOND_BRAIN_RAG_MIN_SCORE override. The
+    token value appears nowhere in this repo or its history.
+  - **Proof (a) authenticated search:** through the real
+    gateway, four broad queries each returned 200 with 12 hits
+    spanning 7-10 distinct documents and 4 distinct sources
+    (the upstream corpus is unified, so all-collections holds
+    by construction, RFST-010); gateway overview matches the
+    upstream counts (4776 documents / 100008 chunks).
+  - **Proof (b) rejection:** upstream with no token 401, with
+    a wrong token 401.
+  - **Proof (c) writes rejected, brain unchanged:** gateway
+    POST rejected 403 (write_rejected, before any upstream
+    call) and GET on a write-shaped path 404; a direct
+    upstream POST /api/ingest/text carrying the read token
+    returned 403 (scope enforced by the second brain itself);
+    overview counts identical before and after (4776 / 100008).
+  - **Proof (d) live injection:** the RFST-012 injector over
+    the real gateway injected context from a plain discussion
+    context - injected=true, 5 snippets, tokenEstimate 1799
+    of the 1800 budget. No character configuration exists or
+    was used.
+  - **Bug found and fixed (never-leave-a-bug law):** the
+    first live injection returned no_relevant_results. Cause:
+    the upstream keyword (degraded) mode reports sim 0 on
+    every hit with the real relevance in score, and hitScore
+    preferred any finite sim, so every hit scored 0 and fell
+    under the cutoff. Fix in src/second-brain/
+    rag-injection-core.js: only a positive sim outranks
+    score. Regression test added (tests/
+    second-brain-rag.test.js, keyword-mode case); targeted
+    suite 24/24, full unit suite 645/645.
+  - **Honest observation:** live search currently runs in
+    the upstream's keyword mode (degraded=true) because the
+    second brain's own Ollama is down (its /api/health
+    reports ollama:false, db:true); hybrid ranking returns
+    when that service does. That is the second brain's own
+    state - not a gateway or key defect - and this campaign
+    did not touch it.
+  - **Gate C: PASSED.** Every section-16 criterion is met
+    live: one read-only all-collections retrieval service,
+    working for every character automatically, with no
+    character-specific setup.

@@ -90,7 +90,10 @@ function fingerprint(text) {
 }
 
 function hitScore(hit) {
-    if (hit && Number.isFinite(hit.sim)) {
+    // A sim of exactly 0 means "no similarity signal" (the upstream
+    // keyword/degraded mode reports sim 0 with the real relevance in
+    // score); only a positive sim outranks the score.
+    if (hit && Number.isFinite(hit.sim) && hit.sim > 0) {
         return hit.sim;
     }
     if (hit && Number.isFinite(hit.score)) {
