@@ -16,7 +16,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-005 | P0 | Preserve raw roleplay/emotes end-to-end | DONE 2026-11-17 (automated snapshots pass; no formatter bug found) |
 | RFST-006 | P0 | AllTalk V2 remote G14 connection | DONE 2026-11-17 (mock-server contract suite; live render GATED on GPU headroom) |
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
-| RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
+| RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED (GATED - live benchmark awaits a backend install on the Z13: Gufo ASR route 404, whisper not installed; see docs commit 2cc98f1ea) |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search GATED on a scoped read key) |
@@ -24,7 +24,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
 | RFST-015 | P1 | Automatic image workflow router | DONE 2026-11-17 (router core + suite; live routing GATED on ComfyUI being started) |
-| RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | QUEUED |
+| RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | DONE 2026-11-17 (mock-ComfyUI lifecycle suite; live unload GATED on ComfyUI being started) |
 | RFST-017 | P1 | Resource-aware queues and cancellation | QUEUED |
 | RFST-018 | P1 | Global integration status/settings panel | QUEUED |
 | RFST-019 | P1 | Network and transport hardening | QUEUED |
@@ -767,3 +767,47 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     router only selects; it never dispatches. Gate D stays
     OPEN - it needs the RFST-013 live run, the RFST-014
     live benchmarks, and RFST-016.
+- 2026-11-17: **RFST-016 DONE - memory returns to the defined
+  idle state proven by mock suite; live unload GATED on
+  ComfyUI being started.** New dependency-free core
+  `src/media/comfyui-idle-lifecycle-core.js` manages the
+  unload-on-idle lifecycle for the RFST-013 ComfyUI endpoint
+  contract (GET /queue, GET /system_stats, POST /free with
+  unload_models + free_memory). New Jest suite
+  `tests/comfyui-idle-lifecycle.test.js` (27 tests) exercises
+  the real core against a mock ComfyUI client with an
+  injected fake clock.
+  - **Defined idle state (roadmap section 10):** healthy
+    ComfyUI HTTP service stays alive, no image model
+    residency, empty queue, free VRAM back at the recorded
+    idle baseline (within 64 MiB tolerance). The baseline is
+    captured from the first quiet stats observation or set
+    explicitly.
+  - **Lifecycle:** activity/in-flight tracking, a tunable
+    idle grace period (default 60 s, prioritizing freeing
+    memory for text inference), unload only once the grace
+    period elapses with zero local in-flight jobs and an
+    empty remote queue, and post-unload verification against
+    the defined idle state.
+  - **Races (section 13 matrix):** a busy observation always
+    defers; a job arriving while an unload is scheduled
+    cancels it and restarts the grace period; a job arriving
+    while /free is in flight is kept, the unload settles, and
+    the manager returns to active with
+    needsReloadAfterUnload set - the job is never lost and
+    never silently run against unloaded weights. Repeated
+    idle ticks are idempotent (no repeat /free calls); a
+    second activity cycle unloads a second time.
+  - **Cancellation:** cancelPendingUnload clears a scheduled
+    unload; an in-flight unload honestly reports itself not
+    cancellable. Unreachable endpoint and failed /free are
+    reported as errors, never faked as idle.
+  - **Full unit suite: 644/644** (617 at RFST-015 + 27 new).
+  - **GATED (not done):** a live unload against a real
+    ComfyUI - it was not started for this package and no
+    service was touched, exactly as RFST-013/014/015 gated
+    their live legs.
+  - **RFST-008 stays QUEUED/GATED:** its live STT benchmark
+    awaits a backend install on the Z13 (Gufo ASR route 404,
+    whisper not installed; docs commit 2cc98f1ea). Not
+    attempted this tick; RFST-009 likewise untouched.
