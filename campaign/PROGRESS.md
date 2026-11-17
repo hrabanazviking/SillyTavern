@@ -23,7 +23,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection GATED on a scoped read key) |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
-| RFST-015 | P1 | Automatic image workflow router | QUEUED |
+| RFST-015 | P1 | Automatic image workflow router | DONE 2026-11-17 (router core + suite; live routing GATED on ComfyUI being started) |
 | RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | QUEUED |
 | RFST-017 | P1 | Resource-aware queues and cancellation | QUEUED |
 | RFST-018 | P1 | Global integration status/settings panel | QUEUED |
@@ -719,3 +719,51 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     done (all 'unknown'). Gate D stays OPEN - it needs the
     RFST-013 live run, these live benchmarks, and
     RFST-015/016.
+
+- 2026-11-17: **RFST-015 DONE - correct category selection
+  plus manual override proven by suite; live routing GATED
+  on ComfyUI being started.** New dependency-free core
+  `src/media/image-workflow-router-core.js` builds only on
+  the RFST-014 registry core (its categories, scoring and
+  ranking - nothing duplicated). New Jest suite
+  `tests/image-workflow-router.test.js` imports the real
+  core and the real registry.
+  - **Classification:** explicit category field wins, then
+    edit-with-source-image shape, then deterministic keyword
+    scoring over prompt/text/description/subject/tags, then
+    orientation hints (weak, only when no keyword fires).
+    All six registry categories are covered: portrait,
+    full-body, environment, illustration,
+    scene-continuation, image-editing.
+  - **Selection:** per category, the best-scoring workflow
+    and the best-scoring checkpoint/diffusion model from the
+    registry ranking (portrait/environment/illustration/
+    full-body/scene-continuation -> bundled default
+    workflow; image-editing -> bundled avatar workflow, its
+    only editing candidate).
+  - **Manual override always wins:** a named entry id,
+    workflow file, model filename or label, an override
+    category, or the object form - every one of the 28
+    registry entries can be forced by override, even on a
+    category mismatch (the mismatch is reported, not
+    silently corrected).
+  - **Fallback:** unknown or tied/ambiguous requests, and
+    unknown or missing-entry overrides, never throw - they
+    fall back deterministically to the top-ranked automatic
+    pick and report the reason by name
+    (no_category_signals / ambiguous_category_signals /
+    override_not_found / override_unavailable); repeated
+    calls are byte-identical and neither registry nor
+    request is mutated.
+  - **Result:** targeted suite **29 passed / 29**; full
+    unit suite **27 suites, 617 passed / 617** (baseline
+    588 + 29 new), snapshots 2 passed; eslint clean on the
+    new core and suite. No production wiring was changed
+    and no service was started or reconfigured.
+  - **GATED (not done):** live routing against a real
+    ComfyUI - dispatching a routed job and returning an
+    image into chat needs ComfyUI running, which it was
+    not, and it was not started for this package. The
+    router only selects; it never dispatches. Gate D stays
+    OPEN - it needs the RFST-013 live run, the RFST-014
+    live benchmarks, and RFST-016.
