@@ -18,7 +18,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-007 | P0 | TTS text segmentation, non-destructive narration | DONE 2026-11-17 (headless segmentation suite; live voice render GATED on RFST-006) |
 | RFST-008 | P1 | STT backends benchmark on Z13 | QUEUED |
 | RFST-009 | P1 | Push-to-talk and transcript correction | QUEUED |
-| RFST-010 | P0 | Discover second-brain query schema | QUEUED |
+| RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query GATED on a scoped read key) |
 | RFST-011 | P0 | Read-only all-collections gateway | QUEUED |
 | RFST-012 | P0 | Global zero-config RAG injection | QUEUED |
 | RFST-013 | P1 | ComfyUI remote endpoint baseline | QUEUED |
@@ -416,3 +416,48 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     a model; nothing was installed this tick and no backend is
     selected yet.
   - RFST-008 remains QUEUED; Gate B unchanged.
+
+- 2026-11-17: **RFST-010 DONE - second-brain query schema
+  discovered (keeper, read-only, on purplelongship); detailed
+  interface documented PRIVATELY off-repo, per the roadmap
+  wording and the public-repo hygiene rule. RFST-008 was
+  skipped past this tick, not treated as a blocker: it needs a
+  backend install + model download on purpleraider that is not
+  yet selected, while RFST-010's dependencies (RFST-001/002)
+  are banked and it is independent work.**
+  - **The service:** the second brain's viewer/API (a FastAPI
+    app) runs on purplelongship on its local port, backed by
+    PostgreSQL + pgvector, with embeddings from the local
+    Ollama. It was probed read-only; nothing was reconfigured
+    and no second-brain service was disturbed.
+  - **Auth (verified live):** every data route requires a
+    scoped access token; unauthenticated probes of the health,
+    overview, and agent-contract routes returned HTTP 401.
+    A scoped agent contract (OpenAPI) route exists.
+  - **Search route:** one hybrid search endpoint taking a
+    query string, a result count (1-100, default 12), and an
+    optional HyDE flag. It fuses vector search over chunk
+    embeddings with keyword full-text ranking (reciprocal-rank
+    fusion); if embeddings fail it degrades to keyword-only
+    hits and says so, rather than erroring. Hits carry chunk
+    id, document id, similarity, and score only - chunk text
+    plus provenance (document title + source) is fetched per
+    chunk id from a separate read route. An overview route
+    returns document/chunk counts only.
+  - **Collections verdict:** the API has NO collection
+    parameter and no per-collection scoping anywhere - search
+    runs over the single unified documents/chunks corpus, so
+    'all collections' for RFST-011/012 is satisfied by
+    construction; there is nothing to fan out across.
+  - **RFST-011 warning (design fact):** write-capable routes
+    (ingest, graph/skein build, admin) live in the SAME
+    service. The read-only gateway must therefore be a
+    separate front exposing only the read routes behind a
+    read-scoped token, with write paths rejected at the
+    gateway - never a proxy of the whole API.
+  - **GATED (not done):** an authenticated live search - it
+    needs a read-scoped key issued for this campaign through
+    the owner's security gateway; no key was borrowed or read
+    this tick, and no second-brain records were read at all.
+    Schema and hit shapes were verified from the running
+    service's own code plus the live 401 probes.
