@@ -30,7 +30,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-019 | P1 | Network and transport hardening | DONE 2026-11-17 (hardening core + suite; live cross-machine audit GATED) |
 | RFST-020 | P1 | Integration tests across all three computers | DONE 2026-11-17 (mock scenario matrix suite; live three-machine run GATED on all three machines being available together) |
 | RFST-021 | P1 | Update/merge compatibility harness | DONE 2026-11-17 (mock-damage harness suite; live merge run GATED on an actual upstream merge being performed) |
-| RFST-022 | P2 | Optional hands-free VAD / barge-in | QUEUED |
+| RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite; live end-to-end turn-taking GATED on an STT backend on the Z13 - RFST-008 - and on live TTS playback) |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | QUEUED |
 | RFST-024 | P2 | Multi-character voice routing refinements | QUEUED |
 | RFST-025 | P2 | Packaging and one-click local diagnostics | QUEUED |
@@ -1142,3 +1142,65 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     performed and no running service was started,
     reconfigured, or disturbed for this package.
     Gate tracker unchanged.
+
+- 2026-11-17: **RFST-022 DONE - optional hands-free
+  VAD / barge-in.** Evidence required (roadmap
+  section 14): stable end-to-end voice turn-taking.
+  Section 8 eligibility met: hands-free is added only
+  after push-to-talk is stable (RFST-009 DONE).
+  - **Core:** new dependency-free module
+    `src/voice/hands-free-core.js` implements a
+    hands-free turn-taking session against injected
+    collaborators (audio frame stream, STT client,
+    playback controller, clock - the RFST-009 pattern).
+    Hands-free is an explicit user opt-in and is
+    DISABLED by default: while disabled every frame is
+    rejected, so push-to-talk behavior is unchanged.
+    The core performs VAD itself from injected frame
+    levels with configurable speech threshold and a
+    silence hangover - speech ends only after the full
+    hangover, so a short mid-utterance pause never
+    splits one utterance into two turns, and blips
+    below a minimum speech span are dropped as noise.
+  - **Barge-in + feedback guard:** while playback is
+    active, frames are treated as playback echo and
+    suppressed, never as user speech - unless a frame
+    at or above the higher barge-in threshold is
+    sustained continuously for the full barge-in
+    sustain window, which counts as a deliberate
+    talk-over: playback.stop() is called exactly once,
+    a barge-in is recorded, and that speech opens a
+    new user utterance. Barge-in stops playback only:
+    the core only fingerprints the injected chat
+    history (never writes it) and every snapshot
+    reports historyUnchanged, proving a barge-in does
+    not rewrite chat history.
+  - **No duplicate turns:** a closed utterance is
+    transcribed exactly once and sent exactly once;
+    duplicate transcribe / send calls for the same
+    utterance are rejected with its send token, in
+    the spirit of the RFST-009 dedupe guard. Turn
+    states and timing (listening, speech, silence,
+    transcription, round trip) are tracked on the
+    injected clock. When STT is unavailable (no
+    client, or a transcription error) the failure is
+    recorded honestly and the session can fall back
+    to push-to-talk mode or to the typed path, which
+    sends through the same preview / send path.
+  - **Suite:** `tests/hands-free.test.js`, 28 tests
+    against mock VAD frames / STT / playback:
+    opt-in default-off behavior, VAD detection,
+    hangover and pause handling, timing, single-send
+    turn-taking, the echo/feedback guard, sustained
+    barge-in stopping playback exactly once with
+    history untouched, and the STT-unavailable
+    fallbacks.
+  - **Full unit suite: 828/828** (800 at RFST-021
+    HEAD + 28 new), 35 suites.
+  - **GATED (not done):** live end-to-end hands-free
+    turn-taking - GATED on an STT backend on the
+    Z13 (RFST-008: Gufo ASR route 404, whisper not
+    installed) and on live TTS playback to barge in
+    on. No running service was started, reconfigured,
+    or disturbed for this package. Gate tracker
+    unchanged.
