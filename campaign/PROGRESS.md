@@ -31,7 +31,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-020 | P1 | Integration tests across all three computers | DONE 2026-11-17 (mock scenario matrix suite; live three-machine run GATED on all three machines being available together) |
 | RFST-021 | P1 | Update/merge compatibility harness | DONE 2026-11-17 (mock-damage harness suite; live merge run GATED on an actual upstream merge being performed) |
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite; live end-to-end turn-taking GATED on an STT backend on the Z13 - RFST-008 - and on live TTS playback) |
-| RFST-023 | P2 | Optional context-sensitive image suggestions | QUEUED |
+| RFST-023 | P2 | Optional context-sensitive image suggestions | DONE 2026-11-17 (mock router/suggester suite; live image generation GATED on ComfyUI being started) |
 | RFST-024 | P2 | Multi-character voice routing refinements | QUEUED |
 | RFST-025 | P2 | Packaging and one-click local diagnostics | QUEUED |
 
@@ -1204,3 +1204,67 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     on. No running service was started, reconfigured,
     or disturbed for this package. Gate tracker
     unchanged.
+
+- 2026-11-17: **RFST-023 DONE - optional context-sensitive
+  character image suggestions.** Evidence required (roadmap
+  section 14): opt-in, non-destructive triggers. Section 10
+  eligibility met: suggestions are one of the global user
+  choices, offered only as an explicit opt-in.
+  - **Core:** new dependency-free module
+    `src/media/image-suggestions-core.js` implements an
+    image suggestion session against injected collaborators
+    (roster, clock, the RFST-015 router seam, an optional
+    suggester, and the chat history - the RFST-009/022
+    pattern). It builds ONLY on the RFST-014 registry
+    categories and never duplicates registry data; it never
+    dispatches or generates an image. Suggestions are
+    DISABLED by default: while disabled, context evaluation
+    is a no-op rejected with the named reason
+    `suggestions_disabled`, no suggestion is ever produced,
+    and no collaborator is called.
+  - **Context-sensitive triggers:** signal classification
+    is a deterministic keyword/signal function of the
+    inputs - new character introduction, scene/location
+    change, outfit mention, appearance mention, or a
+    character simply present - and produces a suggestion
+    {character, category, prompt sketch, trigger reason,
+    confidence} only when a real signal fires. No signal
+    yields no suggestion (`no_signal`); missing context is
+    `no_context`. Categories come from the RFST-014
+    registry (outfit -> full-body, appearance/introduction
+    -> portrait, scene change -> scene-continuation).
+  - **Non-destructive:** a suggestion is a proposal only.
+    It never auto-generates and never inserts into chat;
+    the injected chat history is only fingerprinted, never
+    written, and every result reports historyUnchanged
+    (the RFST-022 pattern). The user must explicitly
+    accept - which returns the request for the injected
+    RFST-015 router seam, called exactly once - or dismiss,
+    which records the dismissal. A resolved suggestion
+    cannot be accepted or dismissed twice.
+  - **Throttling:** repeated suggestions for the same
+    character + trigger are suppressed by a cooldown
+    window on the injected clock (`cooldown_active`), a
+    per-session maximum applies (`session_limit_reached`),
+    and a dismissal snoozes that character + trigger for
+    longer than the plain cooldown (`dismissed_snooze`).
+  - **Honesty:** a character outside the provided roster
+    is reported `unknown_character` and never suggested;
+    no character is ever invented. A suggester
+    collaborator that throws or offers nothing is recorded
+    `suggester_unavailable`. Nothing ever throws.
+  - **Suite:** `tests/image-suggestions.test.js`, 33 tests
+    against a mock router seam / suggester / fake clock:
+    opt-in default-off and disabled no-op behavior, every
+    trigger kind, determinism, no-signal and no-context
+    reasons, unknown-character honesty, suggester failure
+    honesty, history-unchanged proof, accept returning the
+    router request exactly once, dismissal recording, and
+    cooldown / snooze / session-cap throttling.
+  - **Full unit suite: 861/861** (828 at RFST-022 HEAD
+    + 33 new), 36 suites.
+  - **GATED (not done):** live image generation from an
+    accepted suggestion - GATED on ComfyUI being started
+    (the RFST-013..016 live legs). No running service was
+    started, reconfigured, or disturbed for this package,
+    and ComfyUI was not started. Gate tracker unchanged.
