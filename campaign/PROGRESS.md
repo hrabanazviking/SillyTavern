@@ -33,7 +33,7 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite; live end-to-end turn-taking GATED on an STT backend on the Z13 - RFST-008 - and on live TTS playback) |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | DONE 2026-11-17 (mock router/suggester suite; live image generation GATED on ComfyUI being started) |
 | RFST-024 | P2 | Multi-character voice routing refinements | DONE 2026-11-17 (mock renderer suite; live group voice render GATED on live AllTalk render / GPU headroom - RFST-006) |
-| RFST-025 | P2 | Packaging and one-click local diagnostics | QUEUED |
+| RFST-025 | P2 | Packaging and one-click local diagnostics | DONE 2026-11-17 (mock diagnostics suite + deployment instructions; live one-click run GATED on the F15 UI host) |
 
 ## Release gates (roadmap section 16)
 
@@ -1333,3 +1333,56 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     RFST-006 gating. No running service was started,
     reconfigured, or disturbed for this package, and
     AllTalk was not started. Gate tracker unchanged.
+
+- 2026-11-17: **RFST-025 DONE - packaging and one-click
+  local diagnostics.** Evidence required (roadmap
+  section 14): "Reproducible deployment instructions."
+  - **Deployment instructions:** new root-level document
+    `DEPLOYMENT_RuneForgeAI.md` (no README.md was touched)
+    covers cloning the fork branch
+    `yrsa/our-sillytavern`, native install (no containers),
+    configuring one machine-wide endpoint per service,
+    the roadmap section 17 startup order, updating, and
+    running the one-click diagnostics. Hosts appear by
+    role only (ui-host / inference-host / services-host)
+    and example endpoints are loopback with placeholder
+    ports - no real hostnames, private addresses, or
+    credentials.
+  - **Core:** new dependency-free module
+    `src/integration/diagnostics-core.js` implements a
+    one-click local diagnostics runner against injected
+    collaborators (probe, system-info provider, config
+    provider, clock - the RFST-018/020 pattern; no real
+    I/O in the core). It runs a named set of local
+    checks: runtime/Node.js version, required config
+    presence, free disk space, and one reachability
+    check per configured service endpoint with named
+    states (reachable / unreachable / unconfigured).
+  - **Honesty, never faking:** the runner NEVER throws -
+    collaborator failures are recorded as failed/warned
+    checks with reasons. An unreachable OPTIONAL service
+    is a warning in the report, never hidden and never
+    counted as a pass; an unreachable required service
+    or a missing required config value is a failure.
+    The summary counts pass/warn/fail honestly.
+  - **Copyable report, secrets redacted:** the runner
+    produces a single plain-text diagnostic report
+    (deterministic for a given run) with secrets
+    redacted in the RFST-018 spirit - URL userinfo
+    stripped, secret-looking query parameters and
+    key=value / Bearer secrets replaced.
+  - **Suite:** `tests/diagnostics.test.js`, 24 tests
+    against a mock probe, fake system-info/config
+    providers, and a fake clock: all-checks-pass,
+    unreachable optional/required services recorded
+    honestly, missing config recorded, secret redaction
+    in the report, never-throws on collaborator failure,
+    and a deterministic report.
+  - **Full unit suite: 925/925** (901 at RFST-024
+    HEAD + 24 new), 38 suites.
+  - **GATED (not done):** live one-click diagnostics
+    run on the Windows UI host - GATED on the F15 UI
+    host. No running service was started, reconfigured,
+    or disturbed for this package, and AllTalk, the
+    second brain, and Gufo were not disturbed. Gate
+    tracker unchanged.
