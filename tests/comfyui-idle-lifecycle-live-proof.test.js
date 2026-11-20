@@ -110,7 +110,7 @@ describeLive('RFST-016 LIVE PROOF - real unload-on-idle against a real ComfyUI',
         // A real job, bracketed the way production brackets a
         // generation.
         manager.jobStarted();
-        expect(manager.getSnapshot().state).toBe('busy');
+        expect(manager.getSnapshot().state).toBe('active');
         const promptRes = await fetch(`${COMFY_URL}/prompt`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -140,7 +140,7 @@ describeLive('RFST-016 LIVE PROOF - real unload-on-idle against a real ComfyUI',
         // Inside the grace period the manager waits.
         const early = await manager.tick();
         expect(early.action).toBe('wait');
-        expect(early.state).toBe('cooling');
+        expect(early.state).toBe('idle-pending');
 
         // Past the idle timeout the manager unloads for real.
         await sleep(6_000);
