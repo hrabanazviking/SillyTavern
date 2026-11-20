@@ -21,16 +21,16 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 | RFST-010 | P0 | Discover second-brain query schema | DONE 2026-11-17 (schema discovered + privately documented; authenticated live query PROVEN 2026-11-17 under the RFST-011/012 live legs) |
 | RFST-011 | P0 | Read-only all-collections gateway | DONE 2026-11-17 (mock-upstream gateway suite; authenticated live search PROVEN 2026-11-17 - see the live-leg entry in Notes) |
 | RFST-012 | P0 | Global zero-config RAG injection | DONE 2026-11-17 (mock-gateway injection suite; authenticated live injection PROVEN 2026-11-17 - see the live-leg entry in Notes) |
-| RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite; live image-into-chat GATED on ComfyUI being started) |
+| RFST-013 | P1 | ComfyUI remote endpoint baseline | DONE 2026-11-17 (mock-ComfyUI contract suite); LIVE-PROVEN 2026-11-20 against a real ComfyUI (env-gated suite tests/comfyui-live-proof.test.js; real image returned through the real router). The F15 leg - a real image landing in the Windows UI chat - remains GATED under Gates A/F |
 | RFST-014 | P1 | Image model/workflow inventory and benchmarks | DONE 2026-11-17 (reviewed registry with scoring; live benchmarks GATED on ComfyUI being started) |
 | RFST-015 | P1 | Automatic image workflow router | DONE 2026-11-17 (router core + suite; live routing GATED on ComfyUI being started) |
-| RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | DONE 2026-11-17 (mock-ComfyUI lifecycle suite; live unload GATED on ComfyUI being started) |
+| RFST-016 | P1 | ComfyUI unload-on-idle lifecycle | DONE 2026-11-17 (mock-ComfyUI lifecycle suite); LIVE-PROVEN 2026-11-20 against a real ComfyUI (env-gated suite tests/comfyui-idle-lifecycle-live-proof.test.js; real generation, real /free unload, memory verified back at baseline) |
 | RFST-017 | P1 | Resource-aware queues and cancellation | DONE 2026-11-17 (mock-executor suite; live contention GATED on real services running together) |
 | RFST-018 | P1 | Global integration status/settings panel | DONE 2026-11-17 (panel core + suite; live Windows UI panel GATED on the F15 UI host) |
 | RFST-019 | P1 | Network and transport hardening | DONE 2026-11-17 (hardening core + suite; live cross-machine audit GATED) |
 | RFST-020 | P1 | Integration tests across all three computers | DONE 2026-11-17 (mock scenario matrix suite; live three-machine run GATED on all three machines being available together) |
 | RFST-021 | P1 | Update/merge compatibility harness | DONE 2026-11-17 (mock-damage harness suite; live merge run GATED on an actual upstream merge being performed) |
-| RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite; live end-to-end turn-taking GATED on an STT backend on the Z13 - RFST-008 - and on live TTS playback) |
+| RFST-022 | P2 | Optional hands-free VAD / barge-in | DONE 2026-11-17 (mock VAD/STT/playback suite); LIVE-PROVEN 2026-11-20 end to end (env-gated suite tests/hands-free-live-proof.test.js; real AllTalk speech, real whisper-resident STT via its /v1/audio/transcriptions route - the RFST-008 backend - and real ffplay/PulseAudio playback with a real barge-in). The F15 browser-client leg remains GATED under Gates A/F |
 | RFST-023 | P2 | Optional context-sensitive image suggestions | DONE 2026-11-17 (mock router/suggester suite; live image generation GATED on ComfyUI being started) |
 | RFST-024 | P2 | Multi-character voice routing refinements | DONE 2026-11-17 (mock renderer suite; live group voice render GATED on live AllTalk render / GPU headroom - RFST-006) |
 | RFST-025 | P2 | Packaging and one-click local diagnostics | DONE 2026-11-17 (mock diagnostics suite + deployment instructions; live one-click run GATED on the F15 UI host) |
