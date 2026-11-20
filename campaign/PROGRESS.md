@@ -2252,3 +2252,85 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
 - 2026-11-20 06:51 EST keeper tick: fast-forwarded clone d08667495 -> 6a69e9859 (3 commits banked via GitHub API: RFST-013/016/022 env-gated live-proof suites, 3 test files, 783 insertions); after FF head = remote, clean tree, 25/25 DONE and banked, Gate C passed only, Gates A/B/D/E/F OPEN/gated (F15 Windows UI host, live AllTalk render, ComfyUI started, three-machine live run); live-proof suites skip unless RFST_LIVE_* env vars set, so no live leg is claimed done. No SillyTavern builder live (unrelated ingest-viewer graph_builder and Chrome only). Hygiene filename scan clean (1055 tracked files, no credentials/chat logs/second-brain records/model assets; note: hands-free live-proof usage comment carries a tailnet-style example address matching pre-existing tracked examples in transport-hardening files). MemAvailable ~24.5 GiB; /tmp 79% full, disk-backed ~/st-tmp available. No service changed; Gufo, AllTalk, second brain undisturbed. Gate F not reached, keeper stays enabled.
 - 2026-11-20 07:11 EST keeper tick: fast-forwarded clone b4ee543c5 -> d546dc762 (RFST-022 live-proof suite fix banked via API); after FF head = remote, clean tree, 25/25 DONE and banked, Gate C passed only, Gates A/B/D/E/F OPEN/gated. A live builder IS running this tick in ~/sillytavern-forge-live: hands-free-live-proof jest (RFST-022 live leg, AllTalk voice render in log) started 07:10 — observed only, not disturbed, no live leg claimed done yet. Hygiene filename scan clean (1055 tracked files, no credentials/chat logs/second-brain records/model assets). MemAvailable ~22.3 GiB (unrelated ingest-viewer graph_builder heavy, not disturbed); /tmp 79% full, disk-backed ~/st-tmp available. No service changed; Gufo, AllTalk, second brain undisturbed. Gate F not reached, keeper stays enabled.
 - 2026-11-20 07:21 EST keeper tick: fast-forwarded clone 7a6539afc -> da8716834 (RFST-022 live-proof suite: VAD-style held level meter, banked via API); after FF head = remote, clean tree, 25/25 DONE and banked, Gate C passed only, Gates A/B/D/E/F OPEN/gated (F15 Windows UI host, live AllTalk render, ComfyUI started, three-machine live run). The 07:11 live builder in ~/sillytavern-forge-live has finished and banked; no builder live this tick (unrelated ingest-viewer/Chrome only). Hygiene filename scan clean (1055 tracked files, no credentials/chat logs/second-brain records/model assets). MemAvailable ~23.6 GiB; /tmp 79% full, disk-backed ~/st-tmp available. No service changed; Gufo, AllTalk, second brain undisturbed. Gate F not reached, keeper stays enabled.
+- 2026-11-20: **RFST-013, RFST-016 and RFST-022 LIVE-PROVEN -
+  the three mock-banked packages re-proven against the real
+  services** (Volmarr's 2026-11-20 order: mock proofs are void;
+  real tests must actually be performed). Three new env-gated
+  Jest suites (they skip unless their RFST_LIVE_* variables are
+  set, so the default suite run is unchanged; the full unit
+  suite was re-run after they landed: 38 suites passed, the 3
+  live suites skipped, 925 tests passed, EXIT 0). No production code
+  changed: every failure on the way was in the proof harnesses
+  or in counterpart configuration, fixed where it belonged and
+  recorded in the suites' own commits.
+  - **RFST-013 LIVE-PROVEN** (`tests/comfyui-live-proof.test.js`,
+    run on the Z13 host against a dedicated CPU-mode instance
+    of the real ComfyUI 0.45.0, real vault checkpoints, so the
+    already-running GPU instance and the in-flight LoRA
+    training were never disturbed): POST /comfy/ping 200
+    against the real server; POST /comfy/models lists the real
+    checkpoint (v1-5-pruned-emaonly.safetensors, the small
+    SD 1.5 checkpoint, chosen to keep the proof light);
+    POST /comfy/generate through the full client path
+    (workflow load via /comfy/workflow, quoted-placeholder
+    substitution as the browser client performs it) returned a
+    real generated PNG of 112,577 bytes, cross-checked against
+    a success entry for the same workflow in the real server's
+    /history. Still GATED, unchanged: the F15 leg, a real image
+    landing in the Windows UI chat (Gates A/F).
+  - **RFST-016 LIVE-PROVEN**
+    (`tests/comfyui-idle-lifecycle-live-proof.test.js`, same
+    real server): the production lifecycle core, driven by a
+    plain fetch client, captured its baseline on the quiet
+    server (free memory 39,216,435,200 bytes), bracketed a
+    real generation (jobStarted/jobFinished; success in the
+    real /history; free memory 38,930,210,816 after), waited
+    inside the grace period, then issued a real POST /free
+    (unload_models + free_memory) after the idle timeout and
+    VERIFIED the defined idle state (queue empty, free memory
+    back within tolerance of baseline, server alive);
+    unloadCount 1 and a repeat tick answered
+    none-already-idle. Tolerance note: the run used an explicit
+    1 GiB toleranceBytes (the hermetic default is 64 MiB)
+    because this instance is CPU-mode on a shared 128 GB host
+    whose /system_stats reports system RAM moved by other live
+    workloads; the verified claim is unchanged.
+  - **RFST-022 LIVE-PROVEN** (`tests/hands-free-live-proof.test.js`,
+    run on the G14): every collaborator real. Speech was
+    synthesized by the real AllTalk server (XTTS v2, its own
+    bundled voice) - both user utterances and the assistant
+    reply. Turn 1: VAD opened and closed on the real speech,
+    the real whisper-resident service transcribed it verbatim
+    ("The quick brown fox jumps over the lazy dog."),
+    duplicate transcription refused (already_transcribed),
+    the send fired exactly once and a duplicate send was
+    rejected (duplicate_send_rejected), history never written.
+    Turn 2: the reply played through a real ffplay process on
+    a real PulseAudio null sink; the microphone-side echo of
+    it was suppressed (echo_suppressed frames, no barge-in);
+    the user's real speech then barged in - the core stopped
+    the real player exactly once (process verified exited) -
+    and the interrupting utterance was transcribed by the
+    real service ("Wait, stop there and tell me about the
+    weather instead.") and sent. Still GATED, unchanged: the
+    F15 browser-client leg (Gates A/F).
+  - **Real-API findings recorded in the suites:** AllTalk's
+    /api/tts-generate declares form fields (a JSON body is
+    answered 422), output_file_timestamp is a boolean flag,
+    and output_file_name must match ^[a-zA-Z0-9_]+$; the
+    whisper-resident supervisor launches its whisper.cpp child
+    with --inference-path /v1/audio/transcriptions, so the
+    stock /inference path 404s on this deployment; the
+    hands-free core reports events as per-call return values
+    and its thresholds are defined against a VAD-style held
+    level (the suite's frame meter applies the standard
+    200 ms trailing-maximum hold, measured on the real clips).
+  - **Cross-program fixes (machine-side, not in this repo):**
+    AllTalk's conda env was missing setuptools (pkg_resources),
+    which crashed its startup; repaired with setuptools<81.
+    AllTalk was then run on CPU (CUDA_VISIBLE_DEVICES empty):
+    with the G14's GPU fully held by two Aesir services, its
+    CUDA model load OOMs - an environment fact, recorded here,
+    not a code change; its config was restored afterwards.
+    The whisper child was woken by the proof's own calls and
+    unloads on its own idle policy.
