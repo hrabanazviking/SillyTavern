@@ -135,7 +135,7 @@ async function ttsGenerate(text, name, voice, workDir) {
         language: 'en',
         file_name_gen: name,
         output_file_name: name,
-        output_file_timestamp: String(Date.now()),
+        output_file_timestamp: 'false',
         autoplay: 'false',
         autoplay_volume: '0.8',
     });
