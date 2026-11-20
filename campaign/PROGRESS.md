@@ -2334,3 +2334,5 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     not a code change; its config was restored afterwards.
     The whisper child was woken by the proof's own calls and
     unloads on its own idle policy.
+
+- 2026-11-20 07:31 EST keeper tick: FF clone c31ac7a->6a57811 (RFST-013/016/022 live-proof session record). Verified local==remote 6a578119b, clean tree, no builder live, 25/25 banked, Gate C PASSED, Gates A/B/D/E/F OPEN all GATED on F15 legs. No unbanked package; no work started. Mem avail ~27.5 GB.
