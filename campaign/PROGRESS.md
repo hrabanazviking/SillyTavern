@@ -2336,3 +2336,5 @@ branch. Campaign home: purplelongship `~/sillytavern-forge`.
     unloads on its own idle policy.
 
 - 2026-11-20 07:31 EST keeper tick: FF clone c31ac7a->6a57811 (RFST-013/016/022 live-proof session record). Verified local==remote 6a578119b, clean tree, no builder live, 25/25 banked, Gate C PASSED, Gates A/B/D/E/F OPEN all GATED on F15 legs. No unbanked package; no work started. Mem avail ~27.5 GB.
+
+- 2026-11-20 07:41 EST keeper tick: verified local==remote b15f34e1d, clean tree, no builder live, 25/25 banked, RFST-013/016/022 LIVE-PROVEN, Gate C PASSED, Gates A/B/D/E/F OPEN all GATED on F15 legs. Hygiene scan clean (1055 tracked files; second-brain hits are code modules only). No unbanked package; no work started. Load high from other campaigns; MemAvailable ~28 GiB.
