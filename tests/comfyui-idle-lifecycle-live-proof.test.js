@@ -102,7 +102,7 @@ describeLive('RFST-016 LIVE PROOF - real unload-on-idle against a real ComfyUI',
         // First tick captures the idle baseline on the quiet server.
         const first = await manager.tick();
         expect(first.action).not.toBe('error');
-        expect(first.baselineCaptured).toBe(true);
+        expect(first.baselineVramFree).toBeGreaterThan(0);
         const stats0 = await client.getSystemStats();
         const baselineFree = stats0.devices[0].vram_free;
         console.log(`RFST-016 live: baseline free ${baselineFree}`);

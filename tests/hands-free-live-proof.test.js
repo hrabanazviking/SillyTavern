@@ -122,23 +122,27 @@ function silenceFrames(ms) {
 // --- Real services --------------------------------------------------
 
 async function ttsGenerate(text, name, voice, workDir) {
+    // The real AllTalk API declares form fields (its own web UI
+    // posts form data); a JSON body is answered 422 with every
+    // field "missing" - found by this suite's first live run.
+    const form = new URLSearchParams({
+        text_input: text,
+        text_filtering: 'standard',
+        character_voice_gen: voice,
+        narrator_enabled: 'false',
+        narrator_voice_gen: voice,
+        text_not_inside: 'character',
+        language: 'en',
+        file_name_gen: name,
+        output_file_name: name,
+        output_file_timestamp: '',
+        autoplay: 'false',
+        autoplay_volume: '0.8',
+    });
     const res = await fetch(`${TTS_URL}/api/tts-generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            text_input: text,
-            text_filtering: 'standard',
-            character_voice_gen: voice,
-            narrator_enabled: 'false',
-            narrator_voice_gen: voice,
-            text_not_inside: 'character',
-            language: 'en',
-            file_name_gen: name,
-            output_file_name: name,
-            output_file_timestamp: '',
-            autoplay: 'false',
-            autoplay_volume: '0.8',
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
     });
     if (!res.ok) {
         throw new Error(`AllTalk /api/tts-generate failed: ${res.status} ${await res.text()}`);
@@ -228,20 +232,22 @@ function makeSession(playback) {
 }
 
 async function feed(session, clock, frames, { gain = 1, from = 0, to = frames.length } = {}) {
+    const results = [];
     const startWall = Date.now();
     for (let i = from; i < to; i++) {
         clock.t += 20;
-        session.ingestFrame({ level: Math.min(1, frames[i].level * gain), at: clock.t });
+        results.push(session.ingestFrame({ level: Math.min(1, frames[i].level * gain), at: clock.t }));
         const target = startWall + (i - from + 1) * 20;
         const wait = target - Date.now();
         if (wait > 0) {
             await sleep(wait);
         }
     }
+    return results;
 }
 
-function eventTypes(session) {
-    return session.getSnapshot().events.map(e => e.type);
+function eventTypes(results) {
+    return results.map(r => r?.event).filter(Boolean);
 }
 
 describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', () => {
@@ -313,19 +319,19 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         h.session.enable();
         h.session.start();
 
-        await feed(h.session, h.clock, user1Frames, { gain: user1Gain });
+        const fed = await feed(h.session, h.clock, user1Frames, { gain: user1Gain });
         await feed(h.session, h.clock, silenceFrames(1000));
 
         let snap = h.session.getSnapshot();
         expect(snap.state).toBe('utterance_ready');
-        expect(snap.speechSegments).toBeGreaterThanOrEqual(1);
-        expect(eventTypes(h.session)).toContain('speech_started');
-        expect(eventTypes(h.session)).toContain('speech_ended');
+        expect(snap.utteranceCount).toBe(1);
+        expect(eventTypes(fed)).toContain('speech_started');
+        expect(eventTypes(fed)).toContain('speech_ended');
 
         const heard = await h.session.transcribePending();
         expect(heard.ok).toBe(true);
-        console.log(`RFST-022 live: turn 1 transcript: "${heard.text}"`);
-        expect(heard.text.toLowerCase()).toContain('quick brown fox');
+        console.log(`RFST-022 live: turn 1 transcript: "${heard.transcript}"`);
+        expect(heard.transcript.toLowerCase()).toContain('quick brown fox');
 
         const dup = await h.session.transcribePending();
         expect(dup.ok).toBe(false);
@@ -334,7 +340,7 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         const sentResult = await h.session.send();
         expect(sentResult.ok).toBe(true);
         expect(h.sent).toHaveLength(1);
-        expect(h.sent[0].text).toBe(heard.text);
+        expect(h.sent[0].text).toBe(heard.transcript);
 
         const dupSend = await h.session.send();
         expect(dupSend.ok).toBe(false);
@@ -343,7 +349,7 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
 
         snap = h.session.getSnapshot();
         expect(snap.historyUnchanged).toBe(true);
-        expect(snap.sentCount).toBe(1);
+        expect(snap.sent).toBe(true);
     }, 600_000);
 
     test('turn 2: echo is suppressed, then real speech barges in and stops playback', async () => {
@@ -359,16 +365,18 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         // The microphone hears the reply itself, quietly: echo
         // frames in the speech band but far below barge-in level.
         const echoGain = 0.62 / Math.max(peakLevel(replyFrames), 0.01);
-        await feed(h.session, h.clock, replyFrames, { gain: echoGain, to: Math.min(replyFrames.length, 90) });
+        const echoFed = await feed(h.session, h.clock, replyFrames, { gain: echoGain, to: Math.min(replyFrames.length, 90) });
         let snap = h.session.getSnapshot();
-        expect(eventTypes(h.session)).toContain('echo_suppressed');
+        expect(eventTypes(echoFed)).toContain('echo_suppressed');
+        expect(snap.echoSuppressedFrames).toBeGreaterThan(0);
         expect(snap.bargeInCount).toBe(0);
         expect(playback.isPlaying()).toBe(true);
 
         // The user talks over the reply at full level: sustained
         // loud speech must barge in and stop the real player.
-        await feed(h.session, h.clock, user2Frames, { gain: user2Gain });
+        const bargeFed = await feed(h.session, h.clock, user2Frames, { gain: user2Gain });
         snap = h.session.getSnapshot();
+        expect(eventTypes(bargeFed)).toContain('barge_in');
         expect(snap.bargeInCount).toBe(1);
         expect(h.barges).toHaveLength(1);
         expect(playback.stopCalls).toBe(1);
@@ -381,8 +389,8 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
 
         const heard = await h.session.transcribePending();
         expect(heard.ok).toBe(true);
-        console.log(`RFST-022 live: turn 2 transcript: "${heard.text}"`);
-        expect(heard.text.toLowerCase()).toContain('weather');
+        console.log(`RFST-022 live: turn 2 transcript: "${heard.transcript}"`);
+        expect(heard.transcript.toLowerCase()).toContain('weather');
 
         const sentResult = await h.session.send();
         expect(sentResult.ok).toBe(true);
