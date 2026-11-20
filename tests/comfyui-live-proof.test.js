@@ -169,7 +169,9 @@ describeLive('RFST-013 LIVE PROOF - real ComfyUI behind the real router', () => 
         expect(res.ok).toBe(true);
         const models = await res.json();
         expect(Array.isArray(models)).toBe(true);
-        expect(models).toContain(COMFY_MODEL);
+        // The route answers { text, value } pairs (display name and
+        // filename), as the hermetic suite pinned.
+        expect(models.map(m => m.value)).toContain(COMFY_MODEL);
     });
 
     test('generate: a real image comes back through the full client path', async () => {
