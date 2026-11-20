@@ -26,7 +26,7 @@
  *
  * Gating: runs ONLY when both RFST_LIVE_STT_URL and
  * RFST_LIVE_TTS_URL are set, e.g.
- *   RFST_LIVE_STT_URL=http://100.77.167.10:8080 RFST_LIVE_TTS_URL=http://127.0.0.1:7851 \
+ *   RFST_LIVE_STT_URL=http://whisper-host:8080 RFST_LIVE_TTS_URL=http://127.0.0.1:7851 \
  *     npm run test:unit -- hands-free-live-proof
  * Without them it skips, so the default suite run is unchanged.
  *
@@ -279,9 +279,9 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         console.log(`RFST-022 live: AllTalk voice ${voice}`);
 
         // Real speech for both user utterances and the reply.
-        const rawUser1 = await ttsGenerate(USER_TEXT_1, 'rfst022-user1', voice, workDir);
-        const rawUser2 = await ttsGenerate(USER_TEXT_2, 'rfst022-user2', voice, workDir);
-        replyWav = await ttsGenerate(REPLY_TEXT, 'rfst022-reply', voice, workDir);
+        const rawUser1 = await ttsGenerate(USER_TEXT_1, 'rfst022_user1', voice, workDir);
+        const rawUser2 = await ttsGenerate(USER_TEXT_2, 'rfst022_user2', voice, workDir);
+        replyWav = await ttsGenerate(REPLY_TEXT, 'rfst022_reply', voice, workDir);
 
         // The whisper service's canonical input is 16 kHz mono WAV;
         // convert the utterances with the real ffmpeg. The frames
