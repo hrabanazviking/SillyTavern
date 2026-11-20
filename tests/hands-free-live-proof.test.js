@@ -17,8 +17,12 @@
  *    gain, as a microphone hears a speaker across a room.
  *  - The STT client is a real adapter to the REAL whisper service
  *    (RFST_LIVE_STT_URL): it POSTs the utterance's real recorded
- *    WAV as multipart form data to the whisper.cpp server's
- *    /inference route and returns the real transcript.
+ *    WAV as multipart form data and returns the real transcript.
+ *    The deployment's whisper.cpp child is launched (by its
+ *    resident supervisor) with --inference-path
+ *    /v1/audio/transcriptions, so that is the route the adapter
+ *    uses; the stock /inference path answers 404 on this
+ *    deployment - found by this suite's first live runs.
  *  - Playback is a real audio player process (ffplay) playing the
  *    real reply WAV through a real PulseAudio null sink created
  *    for the proof; stop() really kills the player, and the suite
@@ -169,9 +173,9 @@ async function transcribeWav(wavPath) {
     const form = new FormData();
     form.set('file', new Blob([fs.readFileSync(wavPath)], { type: 'audio/wav' }), path.basename(wavPath));
     form.set('response_format', 'json');
-    const res = await fetch(`${STT_URL}/inference`, { method: 'POST', body: form });
+    const res = await fetch(`${STT_URL}/v1/audio/transcriptions`, { method: 'POST', body: form });
     if (!res.ok) {
-        throw new Error(`whisper /inference failed: ${res.status} ${await res.text()}`);
+        throw new Error(`whisper transcription failed: ${res.status} ${await res.text()}`);
     }
     const json = await res.json();
     return (json.text || '').trim();
