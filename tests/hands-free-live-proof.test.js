@@ -324,13 +324,15 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         h.session.start();
 
         const fed = await feed(h.session, h.clock, user1Frames, { gain: user1Gain });
-        await feed(h.session, h.clock, silenceFrames(1000));
+        const tail = await feed(h.session, h.clock, silenceFrames(1000));
 
         let snap = h.session.getSnapshot();
         expect(snap.state).toBe('utterance_ready');
         expect(snap.utteranceCount).toBe(1);
         expect(eventTypes(fed)).toContain('speech_started');
-        expect(eventTypes(fed)).toContain('speech_ended');
+        // The utterance closes during the trailing silence, once
+        // the hangover elapses.
+        expect(eventTypes(tail)).toContain('speech_ended');
 
         const heard = await h.session.transcribePending();
         expect(heard.ok).toBe(true);
@@ -377,8 +379,14 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         expect(playback.isPlaying()).toBe(true);
 
         // The user talks over the reply at full level: sustained
-        // loud speech must barge in and stop the real player.
-        const bargeFed = await feed(h.session, h.clock, user2Frames, { gain: user2Gain });
+        // loud speech must barge in and stop the real player. The
+        // feed gain here is the microphone gain: measured on this
+        // real clip, a 2.0x gain (a normal hot-mic calibration)
+        // yields a 320 ms run of frames at/above the core's
+        // default 0.85 barge-in threshold, where the file's raw
+        // levels sustain only ~100 ms - real speech amplitude
+        // modulates too much for an unamplified line level.
+        const bargeFed = await feed(h.session, h.clock, user2Frames, { gain: 2.0 });
         snap = h.session.getSnapshot();
         expect(eventTypes(bargeFed)).toContain('barge_in');
         expect(snap.bargeInCount).toBe(1);
