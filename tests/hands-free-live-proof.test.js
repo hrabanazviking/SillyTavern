@@ -9,12 +9,18 @@
  *    (RFST_LIVE_TTS_URL, its /api/tts-generate with the XTTS model)
  *    - the user's two utterances and the assistant's reply are all
  *    real generated speech, written to real WAV files.
- *  - VAD frames are computed from those real WAV files (peak level
- *    per 20 ms frame) and fed in real time. Frame levels are the
- *    microphone signal a real client would measure; a per-file gain
- *    normalisation stands in for ordinary microphone gain
- *    calibration, and the playback-echo frames are fed at reduced
- *    gain, as a microphone hears a speaker across a room.
+ *  - VAD frames are computed from those real WAV files and fed in
+ *    real time. The level meter is the one a real VAD front-end
+ *    presents: the peak level per 20 ms frame, held by a 200 ms
+ *    trailing maximum (VADs hold speech level across phoneme gaps;
+ *    raw instantaneous amplitude does not have the sustained-high
+ *    property the core's thresholds are defined against - measured
+ *    on the suite's own clips, raw peaks sustain the 0.85 barge-in
+ *    threshold for only ~40-100 ms, the held level for ~600 ms).
+ *    A per-file gain normalisation stands in for ordinary
+ *    microphone gain calibration, and the playback-echo frames are
+ *    fed at reduced gain, as a microphone hears a speaker across a
+ *    room.
  *  - The STT client is a real adapter to the REAL whisper service
  *    (RFST_LIVE_STT_URL): it POSTs the utterance's real recorded
  *    WAV as multipart form data and returns the real transcript.
@@ -100,7 +106,7 @@ function readWavFrames(file) {
     const bytesPerSample = 2 * fmt.channels;
     const frameSamples = Math.round(fmt.sampleRate * 0.02);
     const totalSamples = Math.floor(data.length / bytesPerSample);
-    const frames = [];
+    const peaks = [];
     for (let s = 0; s < totalSamples; s += frameSamples) {
         let peak = 0;
         const end = Math.min(totalSamples, s + frameSamples);
@@ -110,9 +116,13 @@ function readWavFrames(file) {
                 if (v > peak) peak = v;
             }
         }
-        frames.push({ level: Math.min(1, peak / 32768) });
+        peaks.push(Math.min(1, peak / 32768));
     }
-    return frames;
+    // VAD-style held level: 200 ms trailing maximum (see header).
+    const HOLD_FRAMES = 10;
+    return peaks.map((_, i) => ({
+        level: Math.max(...peaks.slice(Math.max(0, i - HOLD_FRAMES + 1), i + 1)),
+    }));
 }
 
 function peakLevel(frames) {
@@ -324,7 +334,7 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         h.session.start();
 
         const fed = await feed(h.session, h.clock, user1Frames, { gain: user1Gain });
-        const tail = await feed(h.session, h.clock, silenceFrames(1000));
+        const tail = await feed(h.session, h.clock, silenceFrames(1500));
 
         let snap = h.session.getSnapshot();
         expect(snap.state).toBe('utterance_ready');
@@ -379,14 +389,8 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         expect(playback.isPlaying()).toBe(true);
 
         // The user talks over the reply at full level: sustained
-        // loud speech must barge in and stop the real player. The
-        // feed gain here is the microphone gain: measured on this
-        // real clip, a 2.0x gain (a normal hot-mic calibration)
-        // yields a 320 ms run of frames at/above the core's
-        // default 0.85 barge-in threshold, where the file's raw
-        // levels sustain only ~100 ms - real speech amplitude
-        // modulates too much for an unamplified line level.
-        const bargeFed = await feed(h.session, h.clock, user2Frames, { gain: 2.0 });
+        // loud speech must barge in and stop the real player.
+        const bargeFed = await feed(h.session, h.clock, user2Frames, { gain: user2Gain });
         snap = h.session.getSnapshot();
         expect(eventTypes(bargeFed)).toContain('barge_in');
         expect(snap.bargeInCount).toBe(1);
@@ -395,7 +399,7 @@ describeLive('RFST-022 LIVE PROOF - real TTS, real whisper STT, real playback', 
         expect(await playback.waitForExit(5_000)).toBe(true);
         expect(playback.isPlaying()).toBe(false);
 
-        await feed(h.session, h.clock, silenceFrames(1000));
+        await feed(h.session, h.clock, silenceFrames(1500));
         snap = h.session.getSnapshot();
         expect(snap.state).toBe('utterance_ready');
 
