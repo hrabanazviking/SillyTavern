@@ -69,3 +69,17 @@ House-only file: never donated (see the charter's rule).
 - Upstream sync road: fetch upstream, merge into
   `yrsa/our-sillytavern`, resolve conflicts in favor of our
   features, record the merge here.
+- **Upstream sync 2026-11-21 (Volmarr's standing order — keep the
+  fork current with upstream):** merged upstream/release @
+  82b64a45c (SillyTavern 1.19.1) into `yrsa/our-sillytavern` —
+  merge commit 211b3a1d. Drift before: 5 behind / 558 ahead of
+  upstream/release (merge-base 06bde939f, 2026-09-14). Clean
+  merge, no conflicts; all fork features intact. Brought in:
+  style-block content fix, character asset-folder guards,
+  user-exists checks before backup/delete, version bump to
+  1.19.1, two upstream test files. Verified: targeted suites
+  (charx-assets, second-brain-gateway Gate C,
+  merge-compatibility) 42/42; full unit suite 39 suites / 933
+  tests passed (live-proof files excluded — they need live
+  services). Standing daily watch: cron
+  `sillytavern-upstream-sync` (created 2026-11-21).
